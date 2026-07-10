@@ -1,0 +1,54 @@
+disabled_rules:
+  - large_tuple
+  - shorthand_operator
+  - multiple_closures_with_trailing_closure
+  - line_length
+  - indentation_width
+  - discouraged_direct_init
+
+opt_in_rules:
+  - empty_count               # isEmpty instead count == 0
+  - force_cast                # avoid as!
+  - todo                      # checkmark TODO / FIXME
+  - implicit_return
+  - redundant_nil_coalescing
+  - vertical_parameter_alignment_on_call
+  - vertical_whitespace       # no more than 2 empty lines in a row
+
+analyzer_rules: # requires `swiftlint analyze`
+  - explicit_self
+  - unused_import             # delete unused imports
+
+excluded:
+  - Carthage
+  - Pods
+  - .build
+
+colon:
+  apply_to_dictionaries: false
+
+custom_rules:
+  no_objcMembers:
+    name: "@objcMembers"
+    regex: "@objcMembers"
+    message: "Explicitly use @objc on each member you want to expose to Objective-C"
+    severity: error
+    #no_direct_standard_out_logs:
+    #name: "Writing log messages directly to standard out is disallowed"
+    #regex: "(\\bprint|\\bdebugPrint|\\bdump|Swift\\.print|Swift\\.debugPrint|Swift\\.dump)\\s*\\("
+    #match_kinds:
+    #- identifier
+    #message: "Don't commit `print(…)`, `debugPrint(…)`, or `dump(…)` as they write to standard out in release. Either log to a dedicated logging system or silence this warning in debug-only scenarios explicitly using `// swiftlint:disable:next no_direct_standard_out_logs`"
+    #severity: warning
+  no_file_literal:
+    name: "#file is disallowed"
+    regex: "(\\b#file\\b)"
+    match_kinds:
+      - identifier
+    message: "Instead of #file, use #fileID"
+  no_filepath_literal:
+    name: "#filePath is disallowed"
+    regex: "(\\b#filePath\\b)"
+    match_kinds:
+      - identifier
+    message: "Instead of #filePath, use #fileID."

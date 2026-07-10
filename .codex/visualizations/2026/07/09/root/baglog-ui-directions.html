@@ -1,0 +1,78 @@
+<div id="baglog-ui-directions">
+  <div class="viz-controls" aria-label="UI direction selector">
+    <button type="button" class="btn" data-direction="atlas" aria-pressed="true">Kit Atlas</button>
+    <button type="button" class="btn" data-direction="branches" aria-pressed="false">Living Branches</button>
+    <button type="button" class="btn" data-direction="chooser" aria-pressed="false">Choose Your Kit</button>
+  </div>
+  <section class="card" aria-live="polite">
+    <div class="direction-head">
+      <div>
+        <h2 id="direction-name">Kit Atlas</h2>
+        <p id="direction-summary" class="text-muted">Editorial discovery that starts with a real-world moment, then shows a complete public kit to fork.</p>
+      </div>
+      <span id="direction-tag" class="viz-badge">Recommended</span>
+    </div>
+    <div class="screen-grid" aria-label="Adaptive platform sketch">
+      <article>
+        <h3>iPhone</h3>
+        <div class="mini-screen" id="iphone-preview" data-mode="atlas"><div class="bar"></div><div class="tiles"><span></span><span></span><span></span><span></span></div><div class="feature">Featured kit<br><span class="platform-note">7 items · 37 forks</span></div></div>
+      </article>
+      <article>
+        <h3>iPad</h3>
+        <div class="mini-screen" id="ipad-preview" data-mode="atlas"><div class="bar"></div><div class="tiles"><span></span><span></span><span></span><span></span></div><div class="feature">Scenario grid beside a persistent kit preview</div></div>
+      </article>
+      <article>
+        <h3>Mac</h3>
+        <div class="mini-screen" id="mac-preview" data-mode="atlas"><div class="bar"></div><div class="tiles"><span></span><span></span><span></span><span></span></div><div class="feature">Sidebar: Explore · Saved · My kits</div></div>
+      </article>
+    </div>
+    <p id="direction-detail" class="text-small text-muted">Use a Search tab for exact gear; keep Explore focused on scenarios such as commuting, travel, and hiking.</p>
+  </section>
+</div>
+<style>
+#baglog-ui-directions{display:grid;gap:1rem}.direction-head{display:flex;gap:1rem;justify-content:space-between;align-items:flex-start}.direction-head h2{margin:0}.direction-head p{margin:.4rem 0 0}.screen-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:1rem;margin-top:1rem}.screen-grid article{min-width:0}.screen-grid h3{margin:0 0 .5rem}.mini-screen{min-height:11rem;display:grid;gap:.45rem;padding:.75rem;border:1px solid var(--border);border-radius:.65rem;background:var(--background);overflow:hidden}.mini-screen[data-mode="atlas"] .bar{height:.8rem;background:var(--muted);border-radius:.3rem}.mini-screen[data-mode="atlas"] .tiles{display:grid;grid-template-columns:repeat(2,1fr);gap:.35rem}.mini-screen[data-mode="atlas"] .tiles span{min-height:2.2rem;border-radius:.45rem;background:color-mix(in srgb,var(--viz-series-1) 24%,transparent)}.mini-screen[data-mode="atlas"] .feature{min-height:4rem;border-radius:.45rem;background:var(--secondary);padding:.55rem;color:var(--secondary-foreground)}.mini-screen[data-mode="branches"] .root{min-height:2.3rem;border-radius:.45rem;background:var(--primary);color:var(--primary-foreground);padding:.55rem}.mini-screen[data-mode="branches"] .branch{margin-left:1rem;border-left:2px solid var(--border);display:grid;gap:.35rem;padding-left:.7rem}.mini-screen[data-mode="branches"] .node{border-radius:.4rem;padding:.4rem;background:var(--accent);color:var(--accent-foreground)}.mini-screen[data-mode="chooser"] .question{font-weight:500;min-height:2rem}.mini-screen[data-mode="chooser"] .choices{display:grid;grid-template-columns:repeat(2,1fr);gap:.35rem}.mini-screen[data-mode="chooser"] .choices span{border:1px solid var(--border);border-radius:.4rem;padding:.35rem}.mini-screen[data-mode="chooser"] .preview{border-radius:.45rem;background:var(--secondary);color:var(--secondary-foreground);padding:.5rem}.platform-note{font-size:.78em;color:var(--muted-foreground)}@media(max-width:560px){.screen-grid{grid-template-columns:1fr}.mini-screen{min-height:8.5rem}.direction-head{display:block}.direction-head .viz-badge{display:inline-block;margin-top:.65rem}}
+</style>
+<script>
+(() => {
+  const root = document.getElementById('baglog-ui-directions');
+  const data = {
+    atlas: {
+      name: 'Kit Atlas', tag: 'Recommended',
+      summary: 'Editorial discovery that starts with a real-world moment, then shows a complete public kit to fork.',
+      detail: 'Use a Search tab for exact gear; keep Explore focused on scenarios such as commuting, travel, and hiking.',
+      iphone: '<div class="bar"></div><div class="tiles"><span></span><span></span><span></span><span></span></div><div class="feature">Featured kit<br><span class="platform-note">7 items · 37 forks</span></div>',
+      ipad: '<div class="bar"></div><div class="tiles"><span></span><span></span><span></span><span></span></div><div class="feature">Scenario grid beside a persistent kit preview</div>',
+      mac: '<div class="bar"></div><div class="tiles"><span></span><span></span><span></span><span></span></div><div class="feature">Sidebar: Explore · Saved · My kits</div>'
+    },
+    branches: {
+      name: 'Living Branches', tag: 'Signature detail',
+      summary: 'One original public kit becomes a visible family of practical adaptations.',
+      detail: 'Reserve this for lists with real derivative value; each fork should say what changed and why.',
+      iphone: '<div class="root">Winter bike commute</div><div class="branch"><div class="node">Rain-first · + shell</div><div class="node">Budget · − premium pouch</div><div class="node">Night shift · + lights</div></div>',
+      ipad: '<div class="root">Original kit</div><div class="branch"><div class="node">Compare item deltas in the detail pane</div><div class="node">Switch forks without losing context</div></div>',
+      mac: '<div class="root">Fork lineage</div><div class="branch"><div class="node">Original</div><div class="node">Adaptation notes in inspector</div></div>'
+    },
+    chooser: {
+      name: 'Choose Your Kit', tag: 'Onboarding bet',
+      summary: 'Discovery behaves like a calm scenario picker, not an endless feed.',
+      detail: 'Offer “Browse all public lists” as an escape hatch so experienced users never feel funneled.',
+      iphone: '<div class="question">What are you packing for?</div><div class="choices"><span>City day</span><span>Bike</span><span>Travel</span><span>Hike</span></div><div class="preview">Starter kit<br><span class="platform-note">Start from this kit</span></div>',
+      ipad: '<div class="question">Scenario selection</div><div class="choices"><span>City</span><span>Bike</span><span>Travel</span><span>Camera</span></div><div class="preview">Starter-kit comparison appears alongside</div>',
+      mac: '<div class="question">New kit</div><div class="choices"><span>Scenario</span><span>Template</span><span>Blank</span><span>Fork</span></div><div class="preview">Create and edit in the same window</div>'
+    }
+  };
+  const render = key => {
+    const item = data[key];
+    root.querySelector('#direction-name').textContent = item.name;
+    root.querySelector('#direction-tag').textContent = item.tag;
+    root.querySelector('#direction-summary').textContent = item.summary;
+    root.querySelector('#direction-detail').textContent = item.detail;
+    [['iphone-preview',item.iphone],['ipad-preview',item.ipad],['mac-preview',item.mac]].forEach(([id,html]) => {
+      const node = root.querySelector('#' + id); node.dataset.mode = key; node.innerHTML = html;
+    });
+    root.querySelectorAll('[data-direction]').forEach(button => button.setAttribute('aria-pressed', String(button.dataset.direction === key)));
+  };
+  root.querySelectorAll('[data-direction]').forEach(button => button.addEventListener('click', () => render(button.dataset.direction)));
+  render('atlas');
+})();
+</script>
