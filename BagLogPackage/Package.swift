@@ -12,6 +12,7 @@ let package = Package(
     ],
     targets: [
         .target(name: "AppShellFeature"),
-        .target(name: "Persistence")
+        .target(name: "Persistence"),
+        .testTarget(name: "PersistenceTests", dependencies: ["Persistence"])
     ]
 )
