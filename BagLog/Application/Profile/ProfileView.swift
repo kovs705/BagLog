@@ -18,7 +18,14 @@ struct ProfileView: View {
     
     // MARK: - Components
     @ViewBuilder private var innerContent: some View {
-        /*@START_MENU_TOKEN@*//*@PLACEHOLDER=Text("Hello World!")@*/Text("Hello World!")/*@END_MENU_TOKEN@*/
+        NavigationStack {
+            ContentUnavailableView(
+                "BagLog",
+                systemImage: "backpack",
+                description: Text("Here is your profile page")
+            )
+        }
+        .navigationTitle("Hello, Eugene")
     }
 }
 

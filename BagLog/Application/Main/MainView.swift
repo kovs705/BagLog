@@ -23,7 +23,7 @@ struct MainView: View {
         TabView(
             selection: $router.selection,
             content: {
-                Tab("Expore", systemImage: "compas", value: .explore) {
+                Tab("Expore", systemImage: "mail.stack", value: .explore) {
                     exploreFeed
                 }
                 
@@ -31,15 +31,22 @@ struct MainView: View {
                     myKits
                 }
                 
-                Tab("Create Kits", systemImage: "", value: .createKit) {
-                    createKit
-                }
-                
-                Tab("My Profile", systemImage: "", value: .profile) {
+                Tab("My Profile", systemImage: "person", value: .profile, role: .search) {
                     profile
                 }
             }
         )
+        .sheet(isPresented: $router.createKitIsPresented) {
+            CreateKitView()
+        }
+        .tabViewBottomAccessory {
+            Button("Create kit") {
+                router.createKitIsPresented.toggle()
+            }
+            .buttonStyle(.plain)
+            .contentShape(.rect)
+        }
+        .tabBarMinimizeBehavior(.onScrollDown)
     }
     
     @ViewBuilder private var exploreFeed: some View {

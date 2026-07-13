@@ -18,7 +18,22 @@ struct ExploreFeedView: View {
     
     // MARK: - Components
     @ViewBuilder private var innerContent: some View {
-        /*@START_MENU_TOKEN@*//*@PLACEHOLDER=Text("Hello World!")@*/Text("Hello World!")/*@END_MENU_TOKEN@*/
+        NavigationStack {
+            ScrollView {
+                rect(height: 128)
+                rect(height: 64)
+                rect(height: 256)
+            }
+            .contentMargins(.horizontal, 16)
+            .navigationTitle("Explore")
+        }
+    }
+    
+    @ViewBuilder private func rect(height: CGFloat) -> some View {
+        RoundedRectangle(cornerRadius: 16)
+            .fill(.gray)
+            .frame(maxWidth: .infinity)
+            .frame(height: height)
     }
 }
 

@@ -10,10 +10,11 @@ import SwiftUI
 
 struct BagLogRootView: View {
     var body: some View {
-        ContentUnavailableView(
-            "BagLog",
-            systemImage: "backpack",
-            description: Text("Create, fork, and share practical gear lists.")
-        )
+//        ContentUnavailableView(
+//            "BagLog",
+//            systemImage: "backpack",
+//            description: Text("Create, fork, and share practical gear lists.")
+//        )
+        MainView()
     }
 }

@@ -12,13 +12,13 @@ enum SelectedTab: String {
     case explore
     case profile
     case myKits
-    case createKit
 }
 
 @MainActor
 @Observable final class Router {
     
     var selection: SelectedTab = .explore
+    var createKitIsPresented = false
     var debuggerIsPresented: Bool = false
     
 }
