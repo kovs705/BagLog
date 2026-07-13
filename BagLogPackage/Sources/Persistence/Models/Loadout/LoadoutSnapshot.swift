@@ -1,9 +1,12 @@
 //
 //  LoadoutSnapshot.swift
-//  
+//  BagLog
 //
-//  Created by Eugene on 12/07/2026.
+//  Created by Eugene Kovs on 11.07.2026.
+//  https://github.com/kovs705
 //
+
+import Foundation
 
 public struct LoadoutSnapshot: Sendable, Equatable, Identifiable {
     public let id: UUID

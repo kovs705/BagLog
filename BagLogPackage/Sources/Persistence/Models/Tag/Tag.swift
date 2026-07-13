@@ -12,6 +12,7 @@ import SwiftData
 @available(iOS 18.0, macOS 15.0, *)
 @Model
 public final class Tag {
+    #Unique<Tag>([\.normalizedName])
     #Index<Tag>([\.normalizedName])
 
     public var id: UUID
