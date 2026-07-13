@@ -10,6 +10,8 @@ import SwiftUI
 
 @main
 struct BagLogApp: App {
+    
+    @Environment(Router.self) private var router
     @State private var appState = BagLogAppState()
 
     var body: some Scene {

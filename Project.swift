@@ -35,7 +35,7 @@ let project = Project(
             destinations: .iOS,
             product: .staticFramework,
             bundleId: "com.CodingKovs.BagLog.DesignSystem",
-            deploymentTargets: .iOS("18.0"),
+            deploymentTargets: .iOS("26.0"),
             infoPlist: .default,
             sources: [
                 "DesignSystem/**"
@@ -67,7 +67,7 @@ let project = Project(
 //            destinations: .iOS,
 //            product: .framework,
 //            bundleId: "com.CodingKovs.BagLog.DataStore",
-//            deploymentTargets: .iOS("18.0"),
+//            deploymentTargets: .iOS("26.0"),
 //            infoPlist: .default,
 //            sources: [
 //                "DataStore/**"
@@ -88,7 +88,7 @@ let project = Project(
             destinations: .iOS,
             product: .staticFramework,
             bundleId: "com.CodingKovs.BagLog.Services",
-            deploymentTargets: .iOS("18.0"),
+            deploymentTargets: .iOS("26.0"),
             infoPlist: .default,
             sources: [
                 "Services/**"
@@ -109,7 +109,7 @@ let project = Project(
             destinations: .iOS,
             product: .app,
             bundleId: "com.CodingKovs.BagLog",
-            deploymentTargets: .iOS("18.0"),
+            deploymentTargets: .iOS("26.0"),
             infoPlist: .extendingDefault(with: [
                 "UISupportedInterfaceOrientations": ["UIInterfaceOrientationPortrait"],
                 "UISupportedInterfaceOrientations~ipad": [
@@ -181,7 +181,7 @@ let project = Project(
             destinations: .iOS,
             product: .unitTests,
             bundleId: "com.CodingKovs.BagLog.Tests",
-            deploymentTargets: .iOS("18.0"),
+            deploymentTargets: .iOS("26.0"),
             infoPlist: .default,
             sources: ["BagLogTests/**"],
             dependencies: [
@@ -202,7 +202,7 @@ let project = Project(
             destinations: .iOS,
             product: .uiTests,
             bundleId: "com.CodingKovs.BagLog.UITests",
-            deploymentTargets: .iOS("18.0"),
+            deploymentTargets: .iOS("26.0"),
             infoPlist: .default,
             sources: ["BagLogUITests/**"],
             dependencies: [
