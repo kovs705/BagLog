@@ -8,7 +8,6 @@
 
 import Foundation
 
-@available(iOS 18.0, macOS 15.0, *)
 extension SwiftDataPersistence {
     func validatedProfileValues(from command: SaveUserProfileCommand) throws -> (handle: String, displayName: String, bio: String?) {
         let handle = command.handle.trimmingCharacters(in: .whitespacesAndNewlines)

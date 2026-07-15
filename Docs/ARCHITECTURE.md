@@ -51,6 +51,8 @@ types; it does not decide how a screen looks or when a server request runs.
   public API, folder structure, known gaps, and what is intentionally deferred.
 - [Project description](PROJECT_DESCRIPTION.md) describes the product and user
   journey.
+- [Release 1.0](RELEASE_1_0.md) is the shipping scope and acceptance criteria
+  for the first local-first release.
 
 ## Current integration status
 

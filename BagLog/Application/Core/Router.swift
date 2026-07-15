@@ -16,9 +16,9 @@ enum SelectedTab: String {
 
 @MainActor
 @Observable final class Router {
-    
+
     var selection: SelectedTab = .explore
     var createKitIsPresented = false
     var debuggerIsPresented: Bool = false
-    
+
 }

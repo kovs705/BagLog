@@ -9,7 +9,6 @@
 import Foundation
 import SwiftData
 
-@available(iOS 18.0, macOS 15.0, *)
 extension SwiftDataPersistence {
     func fetchProfile(id: UUID) throws -> UserProfile? {
         let descriptor = FetchDescriptor<UserProfile>(predicate: #Predicate { $0.id == id })

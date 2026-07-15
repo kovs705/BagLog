@@ -15,7 +15,7 @@ public struct ForkOriginSnapshot: Sendable, Equatable {
     public let sourceTitle: String
     public let sourceAuthorHandle: String
     public let forkedAt: Date
-    
+
     public init(
         sourceLoadoutID: UUID,
         sourceRemoteID: String?,

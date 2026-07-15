@@ -9,13 +9,13 @@
 import SwiftUI
 
 struct ExploreFeedView: View {
-    
+
     @Environment(Router.self) private var router
-    
+
     var body: some View {
         innerContent
     }
-    
+
     // MARK: - Components
     @ViewBuilder private var innerContent: some View {
         NavigationStack {
@@ -28,7 +28,7 @@ struct ExploreFeedView: View {
             .navigationTitle("Explore")
         }
     }
-    
+
     @ViewBuilder private func rect(height: CGFloat) -> some View {
         RoundedRectangle(cornerRadius: 16)
             .fill(.gray)

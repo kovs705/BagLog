@@ -105,7 +105,6 @@ struct SwiftDataPersistenceTests {
         #expect(await mediaStore.contains(fileNamed: fileName) == false)
     }
 
-    @available(iOS 18.0, macOS 15.0, *)
     private func makePersistence() throws -> SwiftDataPersistence {
         SwiftDataPersistence(modelContainer: try BagLogModelContainer.make(isStoredInMemoryOnly: true))
     }

@@ -9,7 +9,6 @@
 import Foundation
 import SwiftData
 
-@available(iOS 18.0, macOS 15.0, *)
 @Model
 public final class Loadout {
     #Index<Loadout>(

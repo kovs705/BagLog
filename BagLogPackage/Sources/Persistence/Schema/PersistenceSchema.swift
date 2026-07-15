@@ -8,7 +8,6 @@
 
 import SwiftData
 
-@available(iOS 18.0, macOS 15.0, *)
 public enum BagLogSchemaV1: VersionedSchema {
     public static var versionIdentifier: Schema.Version {
         Schema.Version(1, 0, 0)
@@ -28,7 +27,6 @@ public enum BagLogSchemaV1: VersionedSchema {
     }
 }
 
-@available(iOS 18.0, macOS 15.0, *)
 public enum BagLogMigrationPlan: SchemaMigrationPlan {
     public static var schemas: [any VersionedSchema.Type] {
         [BagLogSchemaV1.self]
@@ -39,7 +37,6 @@ public enum BagLogMigrationPlan: SchemaMigrationPlan {
     }
 }
 
-@available(iOS 18.0, macOS 15.0, *)
 public enum BagLogModelContainer {
     public static func make(isStoredInMemoryOnly: Bool = false) throws -> ModelContainer {
         let schema = Schema(versionedSchema: BagLogSchemaV1.self)

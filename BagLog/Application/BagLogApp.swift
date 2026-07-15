@@ -10,14 +10,12 @@ import SwiftUI
 
 @main
 struct BagLogApp: App {
-    
+
     @State private var router = Router()
-    @State private var appState = BagLogAppState()
 
     var body: some Scene {
         WindowGroup {
-            BagLogRootView()
-                .environment(appState)
+            MainView()
                 .environment(router)
         }
     }

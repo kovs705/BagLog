@@ -9,13 +9,13 @@
 import SwiftUI
 
 struct MyKitsView: View {
-    
+
     @Environment(Router.self) private var router
-    
+
     var body: some View {
         innerContent
     }
-    
+
     // MARK: - Components
     @ViewBuilder private var innerContent: some View {
         NavigationStack {
@@ -24,8 +24,8 @@ struct MyKitsView: View {
                 systemImage: "backpack",
                 description: Text("Your kits will be here")
             )
+            .navigationTitle("My Kits")
         }
-        .navigationTitle("My Kits")
     }
 }
 

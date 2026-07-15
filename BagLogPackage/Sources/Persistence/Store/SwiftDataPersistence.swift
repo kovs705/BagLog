@@ -36,7 +36,6 @@ public protocol BagLogPersisting: Sendable {
     func deleteLoadout(id: UUID) async throws
 }
 
-@available(iOS 18.0, macOS 15.0, *)
 public actor SwiftDataPersistence: BagLogPersisting {
     let modelContext: ModelContext
 
