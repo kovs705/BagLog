@@ -13,6 +13,7 @@ let project = Project(
         )
     ),
     packages: [
+        .local(path: "BagLogPackage"),
         .remote(url: "https://github.com/kovs705/PreviewDebugger", requirement: .branch("main")),
         .remote(url: "https://github.com/kovs705/AccessDenied.git", requirement: .branch("main"))
     ],
@@ -157,6 +158,7 @@ let project = Project(
             dependencies: [
                 .target(name: "DesignSystem"),
                 .target(name: "Services"),
+                .package(product: "Persistence"),
                 .package(product: "PreviewDebugger"),
                 .package(product: "AccessDenied")
             ],

@@ -30,6 +30,14 @@ extension SwiftDataPersistence {
         return loadout
     }
 
+    func loadoutSnapshots(matching descriptor: FetchDescriptor<Loadout>) throws -> [LoadoutSnapshot] {
+        do {
+            return try modelContext.fetch(descriptor).map(loadoutSnapshot)
+        } catch {
+            throw PersistenceError.queryFailed
+        }
+    }
+
     func saveChanges() throws {
         do { try modelContext.save() } catch { throw PersistenceError.saveFailed }
     }

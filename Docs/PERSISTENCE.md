@@ -2,9 +2,10 @@
 
 ## Status
 
-The persistence package is a working local data foundation. It is **not yet
-the complete BagLog V1**: the app target does not construct a model container,
-inject `SwiftDataPersistence`, or present an editor/detail flow.
+The persistence package is a working local data foundation. The app target
+constructs one model container at launch, injects `SwiftDataPersistence`, and
+uses it to present local loadout summaries in My Kits. It is **not yet the
+complete BagLog V1**: there is no editor, detail flow, or local profile setup.
 
 This distinction is intentional in the documentation. The package should stay
 small enough to support the V1 loop, while the app layer owns the user journey.
@@ -88,6 +89,7 @@ protocol BagLogPersisting: Sendable {
     func profile(id: UUID) async throws -> UserProfileSnapshot?
     func saveProfile(_ command: SaveUserProfileCommand) async throws -> UserProfileSnapshot
     func loadout(id: UUID) async throws -> LoadoutSnapshot?
+    func loadouts() async throws -> [LoadoutSnapshot]
     func loadouts(ownerID: UUID) async throws -> [LoadoutSnapshot]
     func saveLoadout(_ command: SaveLoadoutCommand) async throws -> LoadoutSnapshot
     func forkLoadout(_ command: ForkLoadoutCommand) async throws -> LoadoutSnapshot
@@ -150,13 +152,9 @@ swift build --sdk "$(xcrun --sdk iphonesimulator --show-sdk-path)" \
 
 ## Next implementation step
 
-Before adding sync, subscriptions, or discovery, integrate the package into
-the app composition root:
-
-1. create `BagLogModelContainer` once at launch;
-2. create `SwiftDataPersistence` from that container;
-3. inject the `BagLogPersisting` interface into a minimal loadout editor; and
-4. add one UI-level create → edit → fork test.
+Before adding sync, subscriptions, or discovery, build the local creation
+flow: set up a local profile, inject the `BagLogPersisting` interface into a
+minimal loadout editor, and add one UI-level create → edit → fork test.
 
 That makes the tested foundation a V1 product slice. Everything else can wait
 until this loop is usable.

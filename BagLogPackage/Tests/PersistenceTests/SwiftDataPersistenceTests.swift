@@ -34,6 +34,9 @@ struct SwiftDataPersistenceTests {
         )
 
         let loaded = try #require(await persistence.loadout(id: saved.id))
+        let loadouts = try await persistence.loadouts()
+
+        #expect(loadouts.map(\.id) == [saved.id])
         #expect(loaded.tagNames == ["Travel"])
         #expect(loaded.items.map(\.title) == ["Camera", "Battery"])
         #expect(loaded.items[0].links.map(\.urlString) == ["https://example.com/camera"])

@@ -30,6 +30,7 @@ public protocol BagLogPersisting: Sendable {
     func profile(id: UUID) async throws -> UserProfileSnapshot?
     func saveProfile(_ command: SaveUserProfileCommand) async throws -> UserProfileSnapshot
     func loadout(id: UUID) async throws -> LoadoutSnapshot?
+    func loadouts() async throws -> [LoadoutSnapshot]
     func loadouts(ownerID: UUID) async throws -> [LoadoutSnapshot]
     func saveLoadout(_ command: SaveLoadoutCommand) async throws -> LoadoutSnapshot
     func forkLoadout(_ command: ForkLoadoutCommand) async throws -> LoadoutSnapshot
@@ -61,17 +62,19 @@ public actor SwiftDataPersistence: BagLogPersisting {
         try fetchLoadout(id: id).map(loadoutSnapshot)
     }
 
+    public func loadouts() throws -> [LoadoutSnapshot] {
+        let descriptor = FetchDescriptor<Loadout>(
+            sortBy: [SortDescriptor(\.updatedAt, order: .reverse)]
+        )
+        return try loadoutSnapshots(matching: descriptor)
+    }
+
     public func loadouts(ownerID: UUID) throws -> [LoadoutSnapshot] {
         let descriptor = FetchDescriptor<Loadout>(
             predicate: #Predicate { $0.ownerID == ownerID },
             sortBy: [SortDescriptor(\.updatedAt, order: .reverse)]
         )
-
-        do {
-            return try modelContext.fetch(descriptor).map(loadoutSnapshot)
-        } catch {
-            throw PersistenceError.queryFailed
-        }
+        return try loadoutSnapshots(matching: descriptor)
     }
 
     public func saveLoadout(_ command: SaveLoadoutCommand) throws -> LoadoutSnapshot {

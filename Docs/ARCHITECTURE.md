@@ -56,6 +56,7 @@ types; it does not decide how a screen looks or when a server request runs.
 
 ## Current integration status
 
-The persistence package is independently buildable and tested, but it is not
-yet wired into the `BagLog` app target or its composition root. Therefore it is
-currently a tested foundation, not a user-shippable V1 feature.
+The persistence package is wired into the `BagLog` composition root. My Kits
+uses its snapshot API to show local loadout summaries without allowing
+SwiftData records to cross the module boundary. The app still needs the
+creation, editing, and fork flows required for a user-shippable V1 feature.
