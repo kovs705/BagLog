@@ -2,7 +2,8 @@
 //  KitDetailItemRow.swift
 //  BagLog
 //
-//  Created by Codex on 15.07.2026.
+//  Create by Eugene Kovs on 15.07.2026.
+//  https://github.com/kovs705
 //
 
 import Persistence
