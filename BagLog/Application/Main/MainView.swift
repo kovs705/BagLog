@@ -36,7 +36,7 @@ struct MainView: View {
                 }
             }
         )
-        .sheet(item: $router.createKitPresentation, onDismiss: router.editorDidDismiss) { presentation in
+        .fullScreenCover(item: $router.createKitPresentation, onDismiss: router.editorDidDismiss) { presentation in
             CreateKitView(presentation: presentation)
         }
         .tabViewBottomAccessory {
