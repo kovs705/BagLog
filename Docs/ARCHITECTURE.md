@@ -49,6 +49,8 @@ types; it does not decide how a screen looks or when a server request runs.
 
 - [Persistence V1](PERSISTENCE.md) describes the current implementation,
   public API, folder structure, known gaps, and what is intentionally deferred.
+- [Create Kit editor](CREATE_KIT_EDITOR.md) documents draft saving, media
+  ownership, validation, focus routing, and publication hand-off.
 - [Project description](PROJECT_DESCRIPTION.md) describes the product and user
   journey.
 - [Release 1.0](RELEASE_1_0.md) is the shipping scope and acceptance criteria
@@ -56,7 +58,8 @@ types; it does not decide how a screen looks or when a server request runs.
 
 ## Current integration status
 
-The persistence package is wired into the `BagLog` composition root. My Kits
-uses its snapshot API to show local loadout summaries without allowing
-SwiftData records to cross the module boundary. The app still needs the
-creation, editing, and fork flows required for a user-shippable V1 feature.
+The persistence and media actors are wired into the `BagLog` composition root.
+Create Kit owns the local profile prerequisite, continuously saved drafts,
+photo staging, item editing, and local publication. My Kits reopens drafts in
+that editor and sends published loadouts to read-only detail. The remaining V1
+product gap is the end-to-end fork journey and its catalogue affordances.

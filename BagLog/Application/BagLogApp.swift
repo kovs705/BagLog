@@ -16,12 +16,24 @@ struct BagLogApp: App {
     @State private var router = Router()
     private let modelContainer: ModelContainer
     private let persistence: any BagLogPersisting
+    private let mediaStore: any MediaStoring
 
     init() {
         do {
-            let modelContainer = try BagLogModelContainer.make()
+            let isUITesting = ProcessInfo.processInfo.arguments.contains("--ui-testing")
+            let modelContainer = try BagLogModelContainer.make(
+                isStoredInMemoryOnly: isUITesting
+            )
             self.modelContainer = modelContainer
             persistence = SwiftDataPersistence(modelContainer: modelContainer)
+            if isUITesting {
+                mediaStore = try FileMediaStore(
+                    applicationSupportDirectory: FileManager.default.temporaryDirectory
+                        .appendingPathComponent("BagLogUITests", isDirectory: true)
+                )
+            } else {
+                mediaStore = try FileMediaStore()
+            }
         } catch {
             fatalError("BagLog could not initialize its local data store: \(error)")
         }
@@ -32,6 +44,7 @@ struct BagLogApp: App {
             MainView()
                 .environment(router)
                 .environment(\.bagLogPersistence, persistence)
+                .environment(\.bagLogMediaStore, mediaStore)
                 .modelContainer(modelContainer)
         }
     }

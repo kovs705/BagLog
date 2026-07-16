@@ -17,6 +17,12 @@ struct KitDetailItemRow: View {
             Text(item.title)
                 .font(.headline)
 
+            if let category = item.category, !category.isEmpty {
+                Label(category, systemImage: "square.grid.2x2")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+            }
+
             if let brandAndModel {
                 Text(brandAndModel)
                     .foregroundStyle(.secondary)
@@ -37,9 +43,18 @@ struct KitDetailItemRow: View {
             }
             .font(.subheadline)
             .foregroundStyle(.secondary)
+
+            ForEach(item.links) { link in
+                if let destination = link.destination {
+                    Link(destination: destination) {
+                        Label(link.displayLabel, systemImage: "link")
+                    }
+                    .accessibilityHint("Opens in your browser")
+                }
+            }
         }
         .padding(.vertical, 4)
-        .accessibilityElement(children: .combine)
+        .accessibilityElement(children: item.links.isEmpty ? .combine : .contain)
     }
 
     private var brandAndModel: String? {
@@ -51,5 +66,19 @@ struct KitDetailItemRow: View {
         }
 
         return values.isEmpty ? nil : values.joined(separator: " · ")
+    }
+}
+
+private extension ItemLinkSnapshot {
+    var destination: URL? {
+        guard let url = URL(string: urlString),
+              url.scheme?.lowercased() == "https",
+              url.host() != nil else { return nil }
+        return url
+    }
+
+    var displayLabel: String {
+        guard let label, !label.isEmpty else { return "Open link" }
+        return label
     }
 }

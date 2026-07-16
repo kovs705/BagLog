@@ -189,7 +189,8 @@ let project = Project(
             dependencies: [
                 .target(name: "BagLog"),
                 .target(name: "DesignSystem"),
-                .target(name: "Services")
+                .target(name: "Services"),
+                .package(product: "Persistence")
             ],
             settings: .settings(
                 base: [

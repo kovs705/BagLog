@@ -15,6 +15,7 @@ public final class LoadoutItem {
 
     public var id: UUID
     public var title: String
+    public var category: String?
     public var brand: String?
     public var model: String?
     public var notes: String?
@@ -29,6 +30,7 @@ public final class LoadoutItem {
     public init(
         id: UUID = UUID(),
         title: String,
+        category: String? = nil,
         brand: String? = nil,
         model: String? = nil,
         notes: String? = nil,
@@ -38,6 +40,7 @@ public final class LoadoutItem {
     ) {
         self.id = id
         self.title = title
+        self.category = category
         self.brand = brand
         self.model = model
         self.notes = notes

@@ -60,7 +60,9 @@ extension SwiftDataPersistence {
 
     func validatedURLString(_ value: String) throws -> String {
         let trimmedValue = value.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard let url = URL(string: trimmedValue), url.scheme == "https", url.host != nil else { throw PersistenceError.invalidURL }
+        guard let url = URL(string: trimmedValue),
+              url.scheme?.lowercased() == "https",
+              url.host != nil else { throw PersistenceError.invalidURL }
         return trimmedValue
     }
 
@@ -78,7 +80,18 @@ extension SwiftDataPersistence {
     }
 
     func itemSnapshot(_ item: LoadoutItem) -> LoadoutItemSnapshot {
-        LoadoutItemSnapshot(id: item.id, title: item.title, brand: item.brand, model: item.model, notes: item.notes, quantity: item.quantity, sortIndex: item.sortIndex, isEssential: item.isEssential, links: item.links.sorted(using: KeyPathComparator(\.sortIndex)).map(linkSnapshot))
+        LoadoutItemSnapshot(
+            id: item.id,
+            title: item.title,
+            category: item.category,
+            brand: item.brand,
+            model: item.model,
+            notes: item.notes,
+            quantity: item.quantity,
+            sortIndex: item.sortIndex,
+            isEssential: item.isEssential,
+            links: item.links.sorted(using: KeyPathComparator(\.sortIndex)).map(linkSnapshot)
+        )
     }
 
     func linkSnapshot(_ link: ItemLink) -> ItemLinkSnapshot {

@@ -18,7 +18,37 @@ enum SelectedTab: String {
 @Observable final class Router {
 
     var selection: SelectedTab = .explore
-    var createKitIsPresented = false
+    var createKitPresentation: CreateKitPresentation?
+    var myKitsPath: [MyKitsRoute] = []
+    private(set) var kitsRevision = 0
     var debuggerIsPresented: Bool = false
+
+    private var pendingPublishedLoadoutID: UUID?
+
+    func presentNewKit() {
+        createKitPresentation = .new
+    }
+
+    func presentEditor(loadoutID: UUID) {
+        createKitPresentation = .edit(loadoutID)
+    }
+
+    func dismissEditor() {
+        createKitPresentation = nil
+    }
+
+    func finishPublishing(loadoutID: UUID) {
+        pendingPublishedLoadoutID = loadoutID
+        createKitPresentation = nil
+    }
+
+    func editorDidDismiss() {
+        kitsRevision += 1
+
+        guard let pendingPublishedLoadoutID else { return }
+        self.pendingPublishedLoadoutID = nil
+        selection = .myKits
+        myKitsPath = [.detail(pendingPublishedLoadoutID)]
+    }
 
 }

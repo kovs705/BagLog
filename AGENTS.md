@@ -2,7 +2,7 @@
 
 ## Project overview
 
-BagLog is a native iOS application built with Swift, SwiftUI, Tuist, and Swift Package Manager. It targets iOS 18.0 and later. Read [the product description](Docs/PROJECT_DESCRIPTION.md) before changing product behavior or designing a feature.
+BagLog is a native iOS application built with Swift, SwiftUI, Tuist, and Swift Package Manager. The app targets iOS 26.0 and later; the standalone Persistence package retains iOS 18 compatibility. Read [the product description](Docs/PROJECT_DESCRIPTION.md) before changing product behavior or designing a feature.
 
 ## Role and priorities
 

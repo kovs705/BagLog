@@ -15,7 +15,9 @@ struct MyKitsView: View {
     @State private var store = MyKitsStore()
 
     var body: some View {
-        NavigationStack {
+        @Bindable var router = router
+
+        NavigationStack(path: $router.myKitsPath) {
             Group {
                 if store.isLoading {
                     ProgressView("Loading your kits")
@@ -25,30 +27,44 @@ struct MyKitsView: View {
                     MyKitsEmptyStateView(createKit: presentCreateKit)
                 } else {
                     List(store.loadouts) { loadout in
-                        NavigationLink(value: loadout.id) {
-                            MyKitRow(loadout: loadout)
+                        if loadout.status == .draft {
+                            Button {
+                                router.presentEditor(loadoutID: loadout.id)
+                            } label: {
+                                MyKitRow(loadout: loadout)
+                            }
+                            .buttonStyle(.plain)
+                            .accessibilityHint("Opens this draft for editing")
+                            .accessibilityIdentifier("edit-draft-\(loadout.id.uuidString)")
+                        } else {
+                            NavigationLink(value: MyKitsRoute.detail(loadout.id)) {
+                                MyKitRow(loadout: loadout)
+                            }
                         }
                     }
                     .listStyle(.plain)
                 }
             }
             .navigationTitle("My Kits")
-            .navigationDestination(for: UUID.self) { loadoutID in
-                KitDetailView(loadoutID: loadoutID)
+            .navigationDestination(for: MyKitsRoute.self) { route in
+                switch route {
+                case let .detail(loadoutID):
+                    KitDetailView(loadoutID: loadoutID)
+                }
             }
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
                     Button("Create kit", systemImage: "plus", action: presentCreateKit)
                 }
             }
-            .task {
+            .task(id: router.kitsRevision) {
                 await store.load(using: persistence)
             }
         }
     }
 
     private func presentCreateKit() {
-        router.createKitIsPresented = true
+        router.presentNewKit()
     }
 
     private func reload() {

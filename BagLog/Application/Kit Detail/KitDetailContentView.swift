@@ -14,6 +14,34 @@ struct KitDetailContentView: View {
 
     var body: some View {
         List {
+            if !galleryAssets.isEmpty {
+                Section("Gallery") {
+                    ScrollView(.horizontal) {
+                        HStack(spacing: 12) {
+                            ForEach(galleryAssets.enumerated(), id: \.element.id) { index, asset in
+                                BagLogThumbnailImage(
+                                    data: asset.thumbnailData ?? Data(),
+                                    accessibilityLabel: index == 0 ? "Kit cover photo" : "Kit photo \(index + 1)"
+                                )
+                                .frame(width: 240, height: 180)
+                                .clipShape(.rect(cornerRadius: 16))
+                                .overlay(alignment: .topLeading) {
+                                    if index == 0 {
+                                        Label("Cover", systemImage: "star.fill")
+                                            .font(.subheadline)
+                                            .padding(8)
+                                            .background(.regularMaterial, in: .capsule)
+                                            .padding(8)
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    .scrollIndicators(.hidden)
+                    .listRowInsets(EdgeInsets())
+                }
+            }
+
             Section("Details") {
                 Label(loadout.myKitsCategoryTitle, systemImage: loadout.myKitsCategorySymbol)
                 Label(loadout.myKitsStatusTitle, systemImage: loadout.myKitsStatusSymbol)
@@ -60,5 +88,11 @@ struct KitDetailContentView: View {
             }
         }
         .listStyle(.insetGrouped)
+    }
+
+    private var galleryAssets: [LoadoutAssetSnapshot] {
+        loadout.assets.filter {
+            $0.mediaKind == .image && $0.thumbnailData?.isEmpty == false
+        }
     }
 }

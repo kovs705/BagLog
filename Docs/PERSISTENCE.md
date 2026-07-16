@@ -3,9 +3,10 @@
 ## Status
 
 The persistence package is a working local data foundation. The app target
-constructs one model container at launch, injects `SwiftDataPersistence`, and
-uses it to present local loadout summaries in My Kits. It is **not yet the
-complete BagLog V1**: there is no editor, detail flow, or local profile setup.
+constructs one model container at launch, injects `SwiftDataPersistence` and
+`FileMediaStore`, and uses their snapshots in Create Kit, My Kits, and kit
+detail. The local profile setup, editor, and published detail flow are wired;
+the complete BagLog V1 still requires the user-facing fork journey.
 
 This distinction is intentional in the documentation. The package should stay
 small enough to support the V1 loop, while the app layer owns the user journey.
@@ -86,6 +87,7 @@ then returns snapshots.
 
 ```swift
 protocol BagLogPersisting: Sendable {
+    func localProfile() async throws -> UserProfileSnapshot?
     func profile(id: UUID) async throws -> UserProfileSnapshot?
     func saveProfile(_ command: SaveUserProfileCommand) async throws -> UserProfileSnapshot
     func loadout(id: UUID) async throws -> LoadoutSnapshot?
@@ -108,9 +110,10 @@ retain or mutate an `@Model` instance it received from the persistence layer.
 ## Media
 
 `FileMediaStore` owns files below `Application Support/BagLog/Media`. It names
-files from an asset UUID and accepts only simple alphanumeric extensions.
-SwiftData stores `localFileName`, remote URL metadata, and an optional external
-thumbnail.
+files from an asset UUID; its image-import path accepts image types with simple
+alphanumeric extensions and generates a downsampled JPEG thumbnail.
+SwiftData stores the ordered `localFileName`, remote URL metadata, and thumbnail
+bytes so views never decode full-resolution source photos.
 
 The current store does **not** coordinate database deletion with file deletion.
 For V1, the editor should call `FileMediaStore.remove(fileNamed:)` after it has
@@ -138,9 +141,12 @@ implemented end to end.
 
 The package currently has Swift Testing coverage for:
 
-- saving an ordered loadout graph and normalising duplicate tags;
+- local-profile lookup;
+- saving and explicitly updating an ordered loadout graph, item categories,
+  links, galleries, and normalised tags;
+- rejecting non-HTTPS links;
 - forking without sharing item/link identifiers or private media; and
-- storing and removing a managed media file.
+- importing, downsampling, finding, and removing managed media.
 
 Run from `BagLogPackage/`:
 
@@ -152,9 +158,6 @@ swift build --sdk "$(xcrun --sdk iphonesimulator --show-sdk-path)" \
 
 ## Next implementation step
 
-Before adding sync, subscriptions, or discovery, build the local creation
-flow: set up a local profile, inject the `BagLogPersisting` interface into a
-minimal loadout editor, and add one UI-level create → edit → fork test.
-
-That makes the tested foundation a V1 product slice. Everything else can wait
-until this loop is usable.
+Before adding sync, subscriptions, or discovery, finish the local fork journey
+on top of the existing editor and add the remaining create → publish → fork UI
+coverage. Everything else can wait until that loop is usable.

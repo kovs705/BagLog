@@ -72,11 +72,22 @@ extension SwiftDataPersistence {
     }
 
     func makeItem(from command: LoadoutItemCommand, sortIndex: Int) -> LoadoutItem {
-        LoadoutItem(id: command.id ?? UUID(), title: command.title.trimmingCharacters(in: .whitespacesAndNewlines), brand: normalizedOptionalText(command.brand), model: normalizedOptionalText(command.model), notes: normalizedOptionalText(command.notes), quantity: command.quantity, sortIndex: sortIndex, isEssential: command.isEssential)
+        LoadoutItem(
+            id: command.id ?? UUID(),
+            title: command.title.trimmingCharacters(in: .whitespacesAndNewlines),
+            category: normalizedOptionalText(command.category),
+            brand: normalizedOptionalText(command.brand),
+            model: normalizedOptionalText(command.model),
+            notes: normalizedOptionalText(command.notes),
+            quantity: command.quantity,
+            sortIndex: sortIndex,
+            isEssential: command.isEssential
+        )
     }
 
     func update(_ item: LoadoutItem, from command: LoadoutItemCommand, sortIndex: Int) {
         item.title = command.title.trimmingCharacters(in: .whitespacesAndNewlines)
+        item.category = normalizedOptionalText(command.category)
         item.brand = normalizedOptionalText(command.brand)
         item.model = normalizedOptionalText(command.model)
         item.notes = normalizedOptionalText(command.notes)
@@ -136,7 +147,16 @@ extension SwiftDataPersistence {
 
     func cloneItem(_ entry: EnumeratedSequence<[LoadoutItem]>.Element) -> LoadoutItem {
         let (index, source) = entry
-        let item = LoadoutItem(title: source.title, brand: source.brand, model: source.model, notes: source.notes, quantity: source.quantity, sortIndex: index, isEssential: source.isEssential)
+        let item = LoadoutItem(
+            title: source.title,
+            category: source.category,
+            brand: source.brand,
+            model: source.model,
+            notes: source.notes,
+            quantity: source.quantity,
+            sortIndex: index,
+            isEssential: source.isEssential
+        )
         item.links = source.links.sorted(using: KeyPathComparator(\.sortIndex)).enumerated().map { index, source in
             ItemLink(urlString: source.urlString, label: source.label, sortIndex: index)
         }

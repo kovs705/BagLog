@@ -11,6 +11,7 @@ import Foundation
 public struct LoadoutItemCommand: Sendable, Equatable {
     public let id: UUID?
     public let title: String
+    public let category: String?
     public let brand: String?
     public let model: String?
     public let notes: String?
@@ -21,6 +22,7 @@ public struct LoadoutItemCommand: Sendable, Equatable {
     public init(
         id: UUID? = nil,
         title: String,
+        category: String? = nil,
         brand: String? = nil,
         model: String? = nil,
         notes: String? = nil,
@@ -30,6 +32,7 @@ public struct LoadoutItemCommand: Sendable, Equatable {
     ) {
         self.id = id
         self.title = title
+        self.category = category
         self.brand = brand
         self.model = model
         self.notes = notes

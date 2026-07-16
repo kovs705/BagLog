@@ -27,6 +27,7 @@ public enum PersistenceError: Error, Equatable, Sendable {
 }
 
 public protocol BagLogPersisting: Sendable {
+    func localProfile() async throws -> UserProfileSnapshot?
     func profile(id: UUID) async throws -> UserProfileSnapshot?
     func saveProfile(_ command: SaveUserProfileCommand) async throws -> UserProfileSnapshot
     func loadout(id: UUID) async throws -> LoadoutSnapshot?
@@ -47,6 +48,18 @@ public actor SwiftDataPersistence: BagLogPersisting {
 
     public func profile(id: UUID) throws -> UserProfileSnapshot? {
         try fetchProfile(id: id).map(profileSnapshot)
+    }
+
+    public func localProfile() throws -> UserProfileSnapshot? {
+        let descriptor = FetchDescriptor<UserProfile>(
+            sortBy: [SortDescriptor(\.createdAt)]
+        )
+
+        do {
+            return try modelContext.fetch(descriptor).first.map(profileSnapshot)
+        } catch {
+            throw PersistenceError.queryFailed
+        }
     }
 
     public func saveProfile(_ command: SaveUserProfileCommand) throws -> UserProfileSnapshot {

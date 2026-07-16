@@ -4,7 +4,8 @@ import PackageDescription
 let package = Package(
     name: "BagLogPackage",
     platforms: [
-        .iOS(.v18)
+        .iOS(.v18),
+        .macOS(.v15)
     ],
     products: [
         .library(name: "AppShellFeature", targets: ["AppShellFeature"]),

@@ -36,15 +36,16 @@ struct MainView: View {
                 }
             }
         )
-        .sheet(isPresented: $router.createKitIsPresented) {
-            CreateKitView()
+        .sheet(item: $router.createKitPresentation, onDismiss: router.editorDidDismiss) { presentation in
+            CreateKitView(presentation: presentation)
         }
         .tabViewBottomAccessory {
             Button("Create kit") {
-                router.createKitIsPresented.toggle()
+                router.presentNewKit()
             }
             .buttonStyle(.plain)
             .contentShape(.rect)
+            .accessibilityIdentifier("create-kit-button")
         }
         .tabBarMinimizeBehavior(.onScrollDown)
     }
@@ -61,9 +62,6 @@ struct MainView: View {
         MyKitsView()
     }
 
-    @ViewBuilder private var createKit: some View {
-        CreateKitView()
-    }
 }
 
 #if DEBUG
