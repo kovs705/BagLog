@@ -10,17 +10,6 @@ struct CreateKitPhotoGallery: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: CreateKitDesign.cardSpacing) {
-            HStack {
-                Label("Kit photos", systemImage: "photo.on.rectangle.angled")
-                    .font(.headline)
-
-                Spacer()
-
-                Text("\(photos.count) of 3")
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
-            }
-
             if photos.isEmpty {
                 PhotosPicker(
                     selection: $selection,
@@ -28,32 +17,31 @@ struct CreateKitPhotoGallery: View {
                     selectionBehavior: .ordered,
                     matching: .images
                 ) {
-                    VStack(spacing: CreateKitDesign.cardSpacing) {
-                        Image(systemName: "photo.badge.plus")
-                            .font(.largeTitle)
-                            .foregroundStyle(.secondary)
-
-                        Text("Add real context")
-                            .font(.headline)
-
-                        Text("Choose up to three photos. The first becomes the cover.")
-                            .font(.subheadline)
-                            .foregroundStyle(.secondary)
-                            .multilineTextAlignment(.center)
-                    }
-                    .padding(.vertical, 24)
-                    .frame(maxWidth: .infinity)
-                    .contentShape(.rect)
+                    Label("Add cover photos", systemImage: "photo.badge.plus")
+                        .font(.headline)
+                        .foregroundStyle(.white)
+                        .padding(.horizontal, 16)
+                        .frame(minHeight: 48)
+                        .background(.white.opacity(0.14), in: .capsule)
+                        .overlay {
+                            Capsule()
+                                .stroke(.white.opacity(0.45), style: StrokeStyle(lineWidth: 1, dash: [6, 4]))
+                        }
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel("Add kit photos")
                 .accessibilityHint("Choose up to three photos. The first becomes the cover.")
+
+                Text("Add up to three photos. The first becomes the cover.")
+                    .font(.subheadline)
+                    .foregroundStyle(.white.opacity(0.68))
             } else {
                 ScrollView(.horizontal) {
                     HStack(spacing: CreateKitDesign.cardSpacing) {
                         ForEach(photos.enumerated(), id: \.element.id) { index, photo in
                             CreateKitPhotoCard(
                                 photo: photo,
+                                position: index + 1,
                                 isCover: index == 0,
                                 isFirst: index == 0,
                                 isLast: index == photos.index(before: photos.endIndex),
@@ -68,24 +56,41 @@ struct CreateKitPhotoGallery: View {
                                 selectionBehavior: .ordered,
                                 matching: .images
                             ) {
-                                Label("Add photos", systemImage: "plus")
-                                    .frame(minWidth: 112, minHeight: CreateKitDesign.galleryHeight)
-                                    .background(.thinMaterial, in: .rect(cornerRadius: CreateKitDesign.compactCornerRadius))
+                                Image(systemName: "plus")
+                                    .font(.title2)
+                                    .foregroundStyle(.white)
+                                    .frame(
+                                        width: CreateKitDesign.heroPhotoWidth,
+                                        height: CreateKitDesign.heroPhotoHeight
+                                    )
+                                    .background(.white.opacity(0.12), in: .rect(cornerRadius: CreateKitDesign.compactCornerRadius))
+                                    .overlay {
+                                        RoundedRectangle(cornerRadius: CreateKitDesign.compactCornerRadius)
+                                            .stroke(
+                                                .white.opacity(0.52),
+                                                style: StrokeStyle(lineWidth: 1, dash: [7, 5])
+                                            )
+                                    }
                             }
                             .buttonStyle(.plain)
+                            .accessibilityLabel("Add more kit photos")
                         }
                     }
                 }
                 .scrollIndicators(.hidden)
+
+                Text("Photo 1 is the cover · \(photos.count) of 3")
+                    .font(.subheadline)
+                    .foregroundStyle(.white.opacity(0.68))
             }
 
             if store.isImportingPhoto {
                 ProgressView("Preparing photo")
                     .font(.subheadline)
+                    .tint(.white)
+                    .foregroundStyle(.white)
             }
         }
-        .padding()
-        .background(.background, in: .rect(cornerRadius: CreateKitDesign.cardCornerRadius))
         .animation(
             reduceMotion ? .easeOut(duration: 0.12) : .snappy,
             value: photos.map(\.id)

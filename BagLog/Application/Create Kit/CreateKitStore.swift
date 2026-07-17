@@ -19,7 +19,6 @@ final class CreateKitStore {
     var profileDisplayName = ""
     var profileHandle = ""
     var composerText = ""
-    var expandedItemID: UUID?
     var message: String?
     var isShowingCloseConfirmation = false
     var isShowingPublishConfirmation = false
@@ -153,15 +152,6 @@ final class CreateKitStore {
         markStructureChanged()
     }
 
-    func toggleExpandedItem(id: UUID) {
-        expandedItemID = expandedItemID == id ? nil : id
-    }
-
-    func revealField(_ field: CreateKitFocusField) {
-        guard let itemID = field.itemID else { return }
-        expandedItemID = itemID
-    }
-
     func addTag(_ value: String) {
         let tag = value.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !tag.isEmpty else { return }
@@ -181,7 +171,6 @@ final class CreateKitStore {
     func addLink(to itemID: UUID) {
         guard let itemIndex = draft?.items.firstIndex(where: { $0.id == itemID }) else { return }
         draft?.items[itemIndex].links.append(CreateKitLinkDraft())
-        expandedItemID = itemID
         markStructureChanged()
     }
 
@@ -193,7 +182,6 @@ final class CreateKitStore {
 
     func removeItem(id: UUID) {
         draft?.items.removeAll { $0.id == id }
-        if expandedItemID == id { expandedItemID = nil }
         itemDeletionCount += 1
         markStructureChanged()
     }

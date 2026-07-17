@@ -62,20 +62,20 @@ struct CreateKitDraftTests {
         #expect(command.assets.map(\.localFileName) == ["cover.jpg", "inside.jpg"])
     }
 
-    @Test("Keyboard focus order is stable across items and links")
+    @Test("Keyboard focus order is scoped between the kit and item editors")
     func focusOrder() {
         var draft = CreateKitDraft(ownerID: UUID())
         var item = CreateKitItemDraft(title: "Camera")
         item.links = [CreateKitLinkDraft(urlString: "https://example.com")]
         draft.items = [item]
 
-        let fields = CreateKitFocusOrder.fields(for: draft)
+        let kitFields = CreateKitFocusOrder.fields(for: draft)
+        let itemFields = CreateKitFocusOrder.fields(for: item)
 
-        #expect(fields.first == .title)
-        #expect(fields[1] == .summary)
-        #expect(fields[2] == .composer)
-        #expect(fields.contains(.itemCategory(item.id)))
-        #expect(fields.suffix(2) == [
+        #expect(kitFields == [.title, .summary, .composer])
+        #expect(itemFields.first == .itemTitle(item.id))
+        #expect(itemFields.contains(.itemCategory(item.id)))
+        #expect(itemFields.suffix(2) == [
             .linkLabel(itemID: item.id, linkID: item.links[0].id),
             .linkURL(itemID: item.id, linkID: item.links[0].id)
         ])

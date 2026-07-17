@@ -56,6 +56,30 @@ final class BagLogUITests: XCTestCase {
         XCTAssertTrue(staticText("Flashlight", in: app).exists)
     }
 
+    func testItemDetailsOpenInASeparateSheet() {
+        let app = XCUIApplication()
+        launchCleanEditor(app)
+
+        let title = app.textFields["kit-title"]
+        XCTAssertTrue(title.waitForExistence(timeout: 3))
+        title.typeText("Sheet kit\n")
+
+        let composer = app.textFields["item-composer"]
+        Thread.sleep(forTimeInterval: 0.3)
+        composer.typeText("Passport wallet\n")
+        XCTAssertTrue(staticText("Passport wallet", in: app).waitForExistence(timeout: 2))
+
+        app.buttons.matching(
+            NSPredicate(format: "identifier BEGINSWITH %@", "edit-item-")
+        ).firstMatch.tap()
+
+        XCTAssertTrue(app.navigationBars["Item details"].waitForExistence(timeout: 2))
+        XCTAssertTrue(app.buttons["finish-item-editor"].exists)
+
+        app.buttons["finish-item-editor"].tap()
+        XCTAssertTrue(app.textFields["item-composer"].waitForExistence(timeout: 2))
+    }
+
     private func launchCleanEditor(_ app: XCUIApplication) {
         app.launchArguments = ["--ui-testing"]
         app.launch()

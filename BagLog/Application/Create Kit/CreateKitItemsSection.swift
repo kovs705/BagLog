@@ -3,7 +3,7 @@ import SwiftUI
 struct CreateKitItemsSection: View {
     @Binding var items: [CreateKitItemDraft]
     @Bindable var store: CreateKitStore
-    let focus: FocusState<CreateKitFocusField?>.Binding
+    let parentFocus: FocusState<CreateKitFocusField?>.Binding
     let reduceMotion: Bool
 
     var body: some View {
@@ -38,11 +38,11 @@ struct CreateKitItemsSection: View {
                 ForEach($items) { $item in
                     CreateKitItemCard(
                         item: $item,
-                        isExpanded: store.expandedItemID == item.id,
+                        position: itemPosition(item.id),
                         isFirst: item.id == items.first?.id,
                         isLast: item.id == items.last?.id,
                         store: store,
-                        focus: focus,
+                        parentFocus: parentFocus,
                         reduceMotion: reduceMotion
                     )
                     .id(item.id)
@@ -54,5 +54,10 @@ struct CreateKitItemsSection: View {
             reduceMotion ? .easeOut(duration: 0.12) : .snappy,
             value: items.map(\.id)
         )
+    }
+
+    private func itemPosition(_ id: UUID) -> Int {
+        guard let index = items.firstIndex(where: { $0.id == id }) else { return 1 }
+        return index + 1
     }
 }

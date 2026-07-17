@@ -2,123 +2,167 @@ import SwiftUI
 
 struct CreateKitItemCard: View {
     @Binding var item: CreateKitItemDraft
-    let isExpanded: Bool
+    let position: Int
     let isFirst: Bool
     let isLast: Bool
     @Bindable var store: CreateKitStore
-    let focus: FocusState<CreateKitFocusField?>.Binding
+    let parentFocus: FocusState<CreateKitFocusField?>.Binding
     let reduceMotion: Bool
 
+    @State private var editorDestination: CreateKitItemEditorDestination?
     @State private var isConfirmingDelete = false
     @State private var isDropTarget = false
 
     var body: some View {
-        VStack(alignment: .leading, spacing: CreateKitDesign.cardSpacing) {
-            HStack(spacing: CreateKitDesign.cardSpacing) {
+        HStack(spacing: CreateKitDesign.cardSpacing) {
+            VStack(spacing: 2) {
                 Image(systemName: "line.3.horizontal")
-                    .foregroundStyle(.tertiary)
-                    .frame(minWidth: 44, minHeight: 44)
-                    .contentShape(.rect)
-                    .draggable(CreateKitItemTransfer(id: item.id)) {
-                        Label(item.title.isEmpty ? "Untitled item" : item.title, systemImage: "shippingbox")
-                            .font(.headline)
-                            .padding()
-                            .background(.regularMaterial, in: .rect(cornerRadius: CreateKitDesign.compactCornerRadius))
-                    }
-                    .accessibilityLabel("Reorder \(item.title)")
-                    .accessibilityHint("Drag, or use the item actions menu")
+                    .font(.subheadline)
 
-                Button(action: toggleExpanded) {
-                    HStack {
-                        VStack(alignment: .leading) {
-                            Text(item.title.isEmpty ? "Untitled item" : item.title)
+                Text(position, format: .number.precision(.integerLength(2)))
+                    .font(.caption)
+                    .monospacedDigit()
+            }
+            .foregroundStyle(.tertiary)
+            .frame(minWidth: 44, minHeight: 44)
+            .contentShape(.rect)
+            .draggable(CreateKitItemTransfer(id: item.id)) {
+                Label(itemTitle, systemImage: itemSymbol)
+                    .font(.headline)
+                    .padding()
+                    .background(.regularMaterial, in: .rect(cornerRadius: CreateKitDesign.compactCornerRadius))
+            }
+            .accessibilityLabel("Reorder \(itemTitle)")
+            .accessibilityHint("Drag, or use the item actions menu")
+
+            Button(action: presentEditor) {
+                HStack(spacing: CreateKitDesign.cardSpacing) {
+                    Image(systemName: itemSymbol)
+                        .font(.headline)
+                        .foregroundStyle(.orange)
+                        .frame(width: 42, height: 42)
+                        .background(.orange.opacity(0.12), in: .rect(cornerRadius: 13))
+
+                    VStack(alignment: .leading, spacing: 3) {
+                        HStack(spacing: 6) {
+                            Text(itemTitle)
                                 .font(.headline)
                                 .foregroundStyle(.primary)
+                                .lineLimit(2)
 
-                            Text(itemSummary)
-                                .font(.subheadline)
-                                .foregroundStyle(.secondary)
-                                .lineLimit(1)
+                            if item.isEssential {
+                                Image(systemName: "exclamationmark.circle.fill")
+                                    .foregroundStyle(.orange)
+                                    .accessibilityLabel("Essential item")
+                            }
                         }
 
-                        Spacer()
-
-                        Image(systemName: "chevron.down")
+                        Text(itemSummary)
+                            .font(.subheadline)
                             .foregroundStyle(.secondary)
-                            .rotationEffect(.degrees(isExpanded ? 180 : 0))
-                            .accessibilityHidden(true)
+                            .lineLimit(1)
                     }
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .contentShape(.rect)
-                }
-                .buttonStyle(.plain)
-                .accessibilityHint(isExpanded ? "Collapses item details" : "Expands item details")
 
-                Menu("Item actions", systemImage: "ellipsis") {
-                    Button("Move up", systemImage: "arrow.up", action: moveUp)
-                        .disabled(isFirst)
-                    Button("Move down", systemImage: "arrow.down", action: moveDown)
-                        .disabled(isLast)
-                    Divider()
-                    Button("Delete item", systemImage: "trash", role: .destructive, action: confirmDelete)
+                    Spacer(minLength: 4)
+
+                    Image(systemName: "chevron.right")
+                        .font(.subheadline)
+                        .foregroundStyle(.tertiary)
+                        .accessibilityHidden(true)
                 }
-                .frame(minWidth: 44, minHeight: 44)
-                .confirmationDialog(
-                    "Delete \(item.title.isEmpty ? "this item" : item.title)?",
-                    isPresented: $isConfirmingDelete,
-                    titleVisibility: .visible
-                ) {
-                    Button("Delete item", role: .destructive, action: deleteItem)
-                    Button("Cancel", role: .cancel) {}
-                } message: {
-                    Text("This removes the item and its links from the draft.")
-                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .contentShape(.rect)
             }
+            .buttonStyle(.plain)
+            .accessibilityHint("Opens item details in a sheet")
+            .accessibilityIdentifier("edit-item-\(item.id.uuidString)")
 
-            if isExpanded {
+            Menu("Item actions", systemImage: "ellipsis") {
+                Button("Move up", systemImage: "arrow.up", action: moveUp)
+                    .disabled(isFirst)
+                Button("Move down", systemImage: "arrow.down", action: moveDown)
+                    .disabled(isLast)
                 Divider()
-
-                CreateKitItemDetailsView(
-                    item: $item,
-                    store: store,
-                    focus: focus
-                )
-                .transition(reduceMotion ? .opacity : .move(edge: .top).combined(with: .opacity))
+                Button("Delete item", systemImage: "trash", role: .destructive, action: confirmDelete)
+            }
+            .labelStyle(.iconOnly)
+            .tint(.secondary)
+            .frame(minWidth: 44, minHeight: 44)
+            .background(.quaternary, in: .circle)
+            .confirmationDialog(
+                "Delete \(itemTitle)?",
+                isPresented: $isConfirmingDelete,
+                titleVisibility: .visible
+            ) {
+                Button("Delete item", role: .destructive, action: deleteItem)
+                Button("Cancel", role: .cancel) {}
+            } message: {
+                Text("This removes the item and its links from the draft.")
             }
         }
-        .padding()
-        .background(.background, in: .rect(cornerRadius: CreateKitDesign.cardCornerRadius))
+        .padding(.horizontal, 14)
+        .padding(.vertical, 12)
+        .background(.regularMaterial, in: .rect(cornerRadius: CreateKitDesign.itemCornerRadius))
         .overlay {
             if isDropTarget {
-                RoundedRectangle(cornerRadius: CreateKitDesign.cardCornerRadius)
+                RoundedRectangle(cornerRadius: CreateKitDesign.itemCornerRadius)
                     .stroke(
                         Color.orange,
                         style: StrokeStyle(lineWidth: 3, dash: [8, 5])
                     )
-            } else if isExpanded {
-                RoundedRectangle(cornerRadius: CreateKitDesign.cardCornerRadius)
-                    .stroke(Color.orange, lineWidth: 2)
             }
         }
         .dropDestination(for: CreateKitItemTransfer.self, action: handleDrop)
-        .animation(reduceMotion ? .easeOut(duration: 0.12) : .snappy, value: isExpanded)
         .animation(reduceMotion ? .easeOut(duration: 0.12) : .snappy, value: isDropTarget)
         .accessibilityAction(named: "Move up", moveUp)
         .accessibilityAction(named: "Move down", moveDown)
+        .sheet(item: $editorDestination) { _ in
+            CreateKitItemEditorSheet(
+                item: $item,
+                store: store
+            )
+        }
+    }
+
+    private var itemTitle: String {
+        let title = item.title.trimmingCharacters(in: .whitespacesAndNewlines)
+        return title.isEmpty ? "Untitled item" : title
+    }
+
+    private var itemSymbol: String {
+        switch item.category.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() {
+        case "tech": "laptopcomputer"
+        case "clothing": "tshirt"
+        case "documents": "doc.text"
+        case "tools": "hammer"
+        case "care": "cross.case"
+        default: "shippingbox"
+        }
     }
 
     private var itemSummary: String {
         let category = item.category.trimmingCharacters(in: .whitespacesAndNewlines)
+        let brandAndModel = [item.brand, item.model]
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty }
+            .joined(separator: " ")
         let quantity = item.quantity > 1 ? "\(item.quantity)×" : ""
-        let details = [quantity, category].filter { !$0.isEmpty }
-        return details.isEmpty ? "Tap for details" : details.joined(separator: " · ")
+        let linkCount: String
+        switch item.links.count {
+        case 0:
+            linkCount = ""
+        case 1:
+            linkCount = "1 link"
+        default:
+            linkCount = "\(item.links.count) links"
+        }
+        let details = [quantity, category, brandAndModel, linkCount].filter { !$0.isEmpty }
+        return details.isEmpty ? "Add details" : details.joined(separator: " · ")
     }
 
-    private func toggleExpanded() {
-        store.toggleExpandedItem(id: item.id)
-        if !isExpanded {
-            focus.wrappedValue = .itemTitle(item.id)
-        }
+    private func presentEditor() {
+        parentFocus.wrappedValue = nil
+        editorDestination = CreateKitItemEditorDestination(id: item.id)
     }
 
     private func moveUp() {
@@ -135,7 +179,6 @@ struct CreateKitItemCard: View {
 
     private func deleteItem() {
         store.removeItem(id: item.id)
-        focus.wrappedValue = .composer
     }
 
     private func handleDrop(

@@ -1,7 +1,7 @@
 import SwiftUI
 
-struct CreateKitKeyboardToolbar: ToolbarContent {
-    @Bindable var store: CreateKitStore
+struct CreateKitItemKeyboardToolbar: ToolbarContent {
+    let item: CreateKitItemDraft
     let focus: FocusState<CreateKitFocusField?>.Binding
 
     var body: some ToolbarContent {
@@ -18,38 +18,34 @@ struct CreateKitKeyboardToolbar: ToolbarContent {
     }
 
     private func movePrevious() {
-        let fields = CreateKitFocusOrder.fields(for: store.draft)
+        let fields = CreateKitFocusOrder.fields(for: item)
         guard let current = focus.wrappedValue,
               let index = fields.firstIndex(of: current),
               index > fields.startIndex else { return }
-        focusField(fields[index - 1])
+        focus.wrappedValue = fields[index - 1]
     }
 
     private func moveNext() {
-        let fields = CreateKitFocusOrder.fields(for: store.draft)
+        let fields = CreateKitFocusOrder.fields(for: item)
         guard let current = focus.wrappedValue,
               let index = fields.firstIndex(of: current),
               index < fields.index(before: fields.endIndex) else { return }
-        focusField(fields[index + 1])
+        focus.wrappedValue = fields[index + 1]
     }
 
     private func dismissKeyboard() {
         focus.wrappedValue = nil
     }
 
-    private func focusField(_ field: CreateKitFocusField) {
-        focus.wrappedValue = field
-    }
-
     private var canMovePrevious: Bool {
-        let fields = CreateKitFocusOrder.fields(for: store.draft)
+        let fields = CreateKitFocusOrder.fields(for: item)
         guard let current = focus.wrappedValue,
               let index = fields.firstIndex(of: current) else { return false }
         return index > fields.startIndex
     }
 
     private var canMoveNext: Bool {
-        let fields = CreateKitFocusOrder.fields(for: store.draft)
+        let fields = CreateKitFocusOrder.fields(for: item)
         guard let current = focus.wrappedValue,
               let index = fields.firstIndex(of: current),
               !fields.isEmpty else { return false }

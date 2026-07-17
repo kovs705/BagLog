@@ -2,10 +2,12 @@ import SwiftUI
 
 struct CreateKitPhotoCard: View {
     let photo: CreateKitPhotoDraft
+    let position: Int
     let isCover: Bool
     let isFirst: Bool
     let isLast: Bool
     @Bindable var store: CreateKitStore
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var isDropTarget = false
 
     var body: some View {
@@ -13,16 +15,20 @@ struct CreateKitPhotoCard: View {
             data: photo.thumbnailData,
             accessibilityLabel: isCover ? "Kit cover photo" : "Kit photo"
         )
-        .frame(width: 248, height: CreateKitDesign.galleryHeight)
+        .frame(
+            width: CreateKitDesign.heroPhotoWidth,
+            height: CreateKitDesign.heroPhotoHeight
+        )
         .clipShape(.rect(cornerRadius: CreateKitDesign.compactCornerRadius))
         .overlay(alignment: .topLeading) {
-            if isCover {
-                Label("Cover", systemImage: "star.fill")
-                    .font(.subheadline)
-                    .padding(8)
-                    .background(.regularMaterial, in: .capsule)
-                    .padding(8)
-            }
+            Text(position, format: .number)
+                .font(.subheadline)
+                .bold()
+                .foregroundStyle(.white)
+                .frame(width: 30, height: 30)
+                .background(isCover ? Color.orange : Color.black.opacity(0.58), in: .circle)
+                .padding(8)
+                .accessibilityHidden(true)
         }
         .overlay(alignment: .topTrailing) {
             Menu("Photo actions", systemImage: "ellipsis") {
@@ -38,7 +44,14 @@ struct CreateKitPhotoCard: View {
                 Button("Remove", systemImage: "trash", role: .destructive, action: remove)
             }
             .buttonStyle(.bordered)
+            .buttonBorderShape(.circle)
+            .labelStyle(.iconOnly)
+            .tint(.white)
             .padding(8)
+        }
+        .overlay {
+            RoundedRectangle(cornerRadius: CreateKitDesign.compactCornerRadius)
+                .stroke(isCover ? Color.orange : .white.opacity(0.24), lineWidth: isCover ? 2 : 1)
         }
         .draggable(CreateKitPhotoOrderTransfer(id: photo.id))
         .dropDestination(for: CreateKitPhotoOrderTransfer.self, action: handleDrop)
@@ -51,9 +64,10 @@ struct CreateKitPhotoCard: View {
                     )
             }
         }
-        .animation(.snappy, value: isDropTarget)
+        .animation(reduceMotion ? .easeOut(duration: 0.12) : .snappy, value: isDropTarget)
         .accessibilityAction(named: "Move earlier", moveEarlier)
         .accessibilityAction(named: "Move later", moveLater)
+        .accessibilityHint(isCover ? "Current cover photo" : "Photo \(position)")
     }
 
     private func makeCover() {

@@ -6,29 +6,38 @@ struct CreateKitComposerBar: View {
     let reduceMotion: Bool
 
     var body: some View {
-        GlassEffectContainer(spacing: CreateKitDesign.cardSpacing) {
-            HStack(alignment: .bottom, spacing: CreateKitDesign.cardSpacing) {
-                TextField("Add an item", text: $store.composerText, axis: .vertical)
-                    .lineLimit(1...4)
-                    .submitLabel(.send)
-                    .focused(focus, equals: .composer)
-                    .onSubmit(addItem)
-                    .onChange(of: store.composerText, submitCompletedLines)
-                    .padding(.horizontal)
-                    .frame(minHeight: 48)
-                    .glassEffect(
-                        .regular.interactive(),
-                        in: .rect(cornerRadius: CreateKitDesign.cardCornerRadius)
-                    )
-                    .accessibilityIdentifier("item-composer")
+        HStack(alignment: .bottom, spacing: 8) {
+            Image(systemName: "plus")
+                .font(.headline)
+                .foregroundStyle(.secondary)
+                .frame(width: 44, height: 44)
+                .background(.orange.tertiary, in: .circle)
+                .accessibilityHidden(true)
 
-                Button("Add item", systemImage: "arrow.up", action: addItem)
-                    .labelStyle(.iconOnly)
-                    .buttonStyle(.glassProminent)
-                    .controlSize(.large)
-                    .disabled(store.composerText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
-                    .accessibilityInputLabels(["Add item", "Send"])
+            TextField("Add an item", text: $store.composerText, axis: .vertical)
+                .lineLimit(1...4)
+                .submitLabel(.send)
+                .focused(focus, equals: .composer)
+                .onSubmit(addItem)
+                .onChange(of: store.composerText, submitCompletedLines)
+                .padding(.horizontal, 4)
+                .frame(minHeight: 48)
+                .accessibilityIdentifier("item-composer")
+
+            Button("Add item", systemImage: "arrow.up", action: addItem)
+                .labelStyle(.iconOnly)
+                .buttonStyle(.borderedProminent)
+                .buttonBorderShape(.circle)
+                .controlSize(.large)
+                .tint(.orange)
+                .disabled(store.composerText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                .accessibilityInputLabels(["Add item", "Send"])
             }
+        .padding(6)
+        .background(.regularMaterial, in: .rect(cornerRadius: CreateKitDesign.composerCornerRadius))
+        .overlay {
+            RoundedRectangle(cornerRadius: CreateKitDesign.composerCornerRadius)
+                .stroke(.white.opacity(0.5), lineWidth: 1)
         }
         .padding(.horizontal, CreateKitDesign.horizontalPadding)
         .padding(.vertical, 8)

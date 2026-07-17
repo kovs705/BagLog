@@ -17,28 +17,24 @@ struct CreateKitView: View {
 
         NavigationStack {
             content
-                .navigationTitle(presentation.navigationTitle)
+                .navigationTitle(store.phase == .editing ? "" : presentation.navigationTitle)
                 .navigationBarTitleDisplayMode(.inline)
+                .toolbarBackground(store.phase == .editing ? .hidden : .automatic, for: .navigationBar)
                 .toolbar {
                     ToolbarItem(placement: .topBarLeading) {
                         Button("Close", systemImage: "xmark", action: close)
-                            .labelStyle(.iconOnly)
+                            .labelStyle(.titleAndIcon)
                             .accessibilityIdentifier("close-kit-editor")
                             .disabled(store.isPublishing)
                     }
 
                     if store.phase == .editing {
-                        ToolbarItem(placement: .principal) {
-                            CreateKitSaveBadge(
-                                state: store.saveState,
-                                label: store.saveStateLabel
-                            )
-                        }
-
                         ToolbarItem(placement: .topBarTrailing) {
-                            Button("Publish", systemImage: "checkmark") {
+                            Button("Publish") {
                                 store.requestPublish()
                             }
+                            .buttonStyle(.glassProminent)
+                            .tint(.orange)
                             .disabled(!store.canPublish)
                             .accessibilityIdentifier("publish-kit")
                         }
@@ -90,8 +86,10 @@ struct CreateKitView: View {
             CreateKitEditorView(
                 store: store,
                 focus: $focusedField,
-                reduceMotion: reduceMotion
+                reduceMotion: reduceMotion,
+                accessibilityTitle: presentation.navigationTitle
             )
+            .ignoresSafeArea(edges: .top)
         case .failed:
             CreateKitErrorView(
                 message: store.message ?? "BagLog couldn’t open this editor.",
