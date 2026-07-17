@@ -61,5 +61,8 @@ types; it does not decide how a screen looks or when a server request runs.
 The persistence and media actors are wired into the `BagLog` composition root.
 Create Kit owns the local profile prerequisite, continuously saved drafts,
 photo staging, item editing, and local publication. My Kits reopens drafts in
-that editor and sends published loadouts to read-only detail. The remaining V1
-product gap is the end-to-end fork journey and its catalogue affordances.
+that editor and sends published loadouts to read-only detail. Its library uses
+status scopes and the shared masonry layout; cover thumbnails come from the
+first ordered image asset, with a category fallback when a kit has no cover.
+The remaining V1 product gap is the end-to-end fork journey and its catalogue
+affordances.

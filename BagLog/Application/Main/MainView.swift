@@ -23,7 +23,7 @@ struct MainView: View {
         TabView(
             selection: $router.selection,
             content: {
-                Tab("Expore", systemImage: "mail.stack", value: .explore) {
+                Tab("Explore", systemImage: "mail.stack", value: .explore) {
                     exploreFeed
                 }
 
@@ -31,7 +31,7 @@ struct MainView: View {
                     myKits
                 }
 
-                Tab("My Profile", systemImage: "person", value: .profile, role: .search) {
+                Tab("My Profile", systemImage: "person", value: .profile) {
                     profile
                 }
             }
@@ -40,12 +40,10 @@ struct MainView: View {
             CreateKitView(presentation: presentation)
         }
         .tabViewBottomAccessory {
-            Button("Create kit") {
-                router.presentNewKit()
-            }
-            .buttonStyle(.plain)
-            .contentShape(.rect)
-            .accessibilityIdentifier("create-kit-button")
+            Button("Create kit", systemImage: "plus", action: router.presentNewKit)
+                .buttonStyle(.plain)
+                .contentShape(.rect)
+                .accessibilityIdentifier("create-kit-button")
         }
         .tabBarMinimizeBehavior(.onScrollDown)
     }

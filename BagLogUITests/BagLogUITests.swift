@@ -44,10 +44,19 @@ final class BagLogUITests: XCTestCase {
         XCTAssertTrue(app.buttons["create-kit-button"].waitForExistence(timeout: 3))
         app.buttons["My Kits"].tap()
 
+        let draftsScope = app.buttons["my-kits-scope-drafts"]
+        XCTAssertTrue(draftsScope.waitForExistence(timeout: 3))
+        draftsScope.tap()
+
         let draft = app.buttons.matching(
             NSPredicate(format: "identifier BEGINSWITH %@", "edit-draft-")
         ).firstMatch
         XCTAssertTrue(draft.waitForExistence(timeout: 3))
+
+        app.buttons["my-kits-scope-published"].tap()
+        XCTAssertFalse(draft.exists)
+        draftsScope.tap()
+        XCTAssertTrue(draft.waitForExistence(timeout: 2))
         draft.coordinate(withNormalizedOffset: CGVector(dx: 0.25, dy: 0.5)).tap()
 
         let reopenedTitle = app.textFields["kit-title"]

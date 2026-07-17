@@ -12,49 +12,26 @@ import SwiftUI
 struct MyKitsView: View {
     @Environment(Router.self) private var router
     @Environment(\.bagLogPersistence) private var persistence
+
     @State private var store = MyKitsStore()
+    @State private var scope = MyKitsScope.all
 
     var body: some View {
         @Bindable var router = router
 
         NavigationStack(path: $router.myKitsPath) {
-            Group {
-                if store.isLoading {
-                    ProgressView("Loading your kits")
-                } else if store.hasLoadingError {
-                    MyKitsErrorStateView(retry: reload)
-                } else if store.loadouts.isEmpty {
-                    MyKitsEmptyStateView(createKit: presentCreateKit)
-                } else {
-                    List(store.loadouts) { loadout in
-                        if loadout.status == .draft {
-                            Button {
-                                router.presentEditor(loadoutID: loadout.id)
-                            } label: {
-                                MyKitRow(loadout: loadout)
-                            }
-                            .buttonStyle(.plain)
-                            .accessibilityHint("Opens this draft for editing")
-                            .accessibilityIdentifier("edit-draft-\(loadout.id.uuidString)")
-                        } else {
-                            NavigationLink(value: MyKitsRoute.detail(loadout.id)) {
-                                MyKitRow(loadout: loadout)
-                            }
-                        }
-                    }
-                    .listStyle(.plain)
-                }
-            }
-            .navigationTitle("My Kits")
+            MyKitsContentView(
+                store: store,
+                scope: $scope,
+                createKit: presentCreateKit,
+                openDraft: presentDraft,
+                persistence: persistence
+            )
+            .navigationTitle("")
             .navigationDestination(for: MyKitsRoute.self) { route in
                 switch route {
                 case let .detail(loadoutID):
                     KitDetailView(loadoutID: loadoutID)
-                }
-            }
-            .toolbar {
-                ToolbarItem(placement: .topBarTrailing) {
-                    Button("Create kit", systemImage: "plus", action: presentCreateKit)
                 }
             }
             .task(id: router.kitsRevision) {
@@ -67,11 +44,10 @@ struct MyKitsView: View {
         router.presentNewKit()
     }
 
-    private func reload() {
-        Task {
-            await store.load(using: persistence)
-        }
+    private func presentDraft(_ loadoutID: UUID) {
+        router.presentEditor(loadoutID: loadoutID)
     }
+
 }
 
 #if DEBUG

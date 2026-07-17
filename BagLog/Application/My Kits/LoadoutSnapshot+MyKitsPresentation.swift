@@ -6,6 +6,7 @@
 //  https://github.com/kovs705
 //
 
+import Foundation
 import Persistence
 
 extension LoadoutSnapshot {
@@ -63,5 +64,12 @@ extension LoadoutSnapshot {
     var myKitsItemCountTitle: String {
         let itemCount = items.count
         return itemCount == 1 ? "1 item" : "\(itemCount) items"
+    }
+
+    var myKitsCoverThumbnailData: Data? {
+        assets
+            .filter { $0.mediaKind == .image && $0.thumbnailData?.isEmpty == false }
+            .min(by: { $0.sortIndex < $1.sortIndex })?
+            .thumbnailData
     }
 }
