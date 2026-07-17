@@ -15,6 +15,11 @@ create a loadout → add items → publish locally → fork → edit the fork
 Networking, authentication, subscriptions, discovery, reactions, and a global
 product catalogue are outside the V1 implementation boundary.
 
+The proposed post-V1 server, database, offline sync contract, Raspberry Pi
+deployment, and scale-out path are documented separately in
+[Backend architecture](BACKEND_ARCHITECTURE.md). That proposal does not change
+the Release 1.0 boundary.
+
 ## Module boundary
 
 ```text
