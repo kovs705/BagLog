@@ -6,6 +6,7 @@ struct CreateKitEditorView: View {
     let focus: FocusState<CreateKitFocusField?>.Binding
     let reduceMotion: Bool
     let accessibilityTitle: String
+    let topics: [CreateKitTopic]
 
     var body: some View {
         if let draft = Binding($store.draft) {
@@ -17,7 +18,8 @@ struct CreateKitEditorView: View {
                             store: store,
                             focus: focus,
                             reduceMotion: reduceMotion,
-                            accessibilityTitle: accessibilityTitle
+                            accessibilityTitle: accessibilityTitle,
+                            topics: topics
                         )
 
                         VStack(alignment: .leading, spacing: CreateKitDesign.sectionSpacing) {

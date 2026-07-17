@@ -21,6 +21,10 @@ extension LoadoutSnapshot {
         case .fitness: "Fitness"
         case .parenting: "Parenting"
         case .other: "Other"
+        default: category.rawValue
+            .replacingOccurrences(of: "-", with: " ")
+            .replacingOccurrences(of: "_", with: " ")
+            .localizedCapitalized
         }
     }
 
@@ -36,6 +40,7 @@ extension LoadoutSnapshot {
         case .fitness: "dumbbell"
         case .parenting: "figure.and.child.holdinghands"
         case .other: "backpack"
+        default: "square.grid.2x2"
         }
     }
 

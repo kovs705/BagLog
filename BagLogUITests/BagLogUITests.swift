@@ -80,6 +80,34 @@ final class BagLogUITests: XCTestCase {
         XCTAssertTrue(app.textFields["item-composer"].waitForExistence(timeout: 2))
     }
 
+    func testTopicPickerSelectsTopicFromSeparateSheet() {
+        let app = XCUIApplication()
+        launchCleanEditor(app)
+
+        let topicButton = app.buttons["choose-kit-topic"]
+        XCTAssertTrue(topicButton.waitForExistence(timeout: 3))
+        topicButton.tap()
+
+        XCTAssertTrue(app.navigationBars["Choose a topic"].waitForExistence(timeout: 2))
+
+        let search = app.textFields["topic-search"]
+        XCTAssertTrue(search.waitForExistence(timeout: 2))
+        search.tap()
+        search.typeText("cam")
+        XCTAssertTrue(app.buttons["topic-option-camera"].waitForExistence(timeout: 2))
+        XCTAssertTrue(staticText("1 topic", in: app).exists)
+        XCTAssertFalse(app.buttons["topic-option-travel"].exists)
+
+        app.buttons["Clear search"].tap()
+
+        let travelTopic = app.buttons["topic-option-travel"]
+        XCTAssertTrue(travelTopic.waitForExistence(timeout: 2))
+        travelTopic.tap()
+
+        XCTAssertTrue(topicButton.waitForExistence(timeout: 2))
+        XCTAssertEqual(topicButton.label, "Topic, Travel")
+    }
+
     private func launchCleanEditor(_ app: XCUIApplication) {
         app.launchArguments = ["--ui-testing"]
         app.launch()

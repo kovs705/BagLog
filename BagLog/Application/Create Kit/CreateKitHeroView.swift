@@ -6,6 +6,7 @@ struct CreateKitHeroView: View {
     let focus: FocusState<CreateKitFocusField?>.Binding
     let reduceMotion: Bool
     let accessibilityTitle: String
+    let topics: [CreateKitTopic]
 
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
@@ -26,7 +27,8 @@ struct CreateKitHeroView: View {
                 draft: $draft,
                 store: store,
                 focus: focus,
-                accessibilityTitle: accessibilityTitle
+                accessibilityTitle: accessibilityTitle,
+                topics: topics
             )
 
             CreateKitPhotoGallery(

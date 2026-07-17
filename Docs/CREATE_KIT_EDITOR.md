@@ -9,11 +9,18 @@ new kit or an existing draft; published kits remain read-only.
 - Return in the title moves focus to the item composer. Return in the composer
   trims and inserts every completed line, scrolls the new card into view, and
   keeps the keyboard focused.
-- One item expands at a time. Stable item and link identifiers define the
-  Previous, Next, and Done keyboard route.
+- Item rows stay compact and open a dedicated editor sheet. The parent editor
+  and item sheet own separate Previous, Next, and Done keyboard routes.
+- The hero's topic control opens a dedicated searchable sheet rather than a
+  fixed menu. The current topic is pinned first when browsing, while search
+  filters by title, identifier, and backend-provided keywords.
+- `CreateKitView` accepts an injected topic catalog and defaults to the bundled
+  catalog. Topics use stable raw string identifiers; unknown remote identifiers
+  round-trip through persistence and are inserted into the picker when a saved
+  selection is not present in the latest catalog.
 - Items and photos support native drag/drop, visible drop feedback, menu-based
   movement, and accessibility reorder actions.
-- System springs animate insertion, expansion, deletion, lift, and movement.
+- System springs animate insertion, sheet presentation, deletion, lift, and movement.
   Reduce Motion uses short fades or non-travelling transitions.
 - Liquid Glass is confined to the bottom composer. Data cards use opaque system
   backgrounds for legibility over the neutral mesh canvas.

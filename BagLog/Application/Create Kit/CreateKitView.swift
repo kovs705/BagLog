@@ -3,6 +3,7 @@ import SwiftUI
 
 struct CreateKitView: View {
     let presentation: CreateKitPresentation
+    let topics: [CreateKitTopic]
 
     @Environment(Router.self) private var router
     @Environment(\.bagLogPersistence) private var persistence
@@ -11,6 +12,14 @@ struct CreateKitView: View {
 
     @State private var store = CreateKitStore()
     @FocusState private var focusedField: CreateKitFocusField?
+
+    init(
+        presentation: CreateKitPresentation,
+        topics: [CreateKitTopic] = CreateKitTopic.bundled
+    ) {
+        self.presentation = presentation
+        self.topics = topics
+    }
 
     var body: some View {
         @Bindable var store = store
@@ -87,7 +96,8 @@ struct CreateKitView: View {
                 store: store,
                 focus: $focusedField,
                 reduceMotion: reduceMotion,
-                accessibilityTitle: presentation.navigationTitle
+                accessibilityTitle: presentation.navigationTitle,
+                topics: topics
             )
             .ignoresSafeArea(edges: .top)
         case .failed:

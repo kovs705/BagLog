@@ -50,7 +50,7 @@ public final class Loadout {
     public var tags: [Tag] = []
 
     public var category: LoadoutCategory {
-        get { LoadoutCategory(rawValue: categoryRaw) ?? .other }
+        get { LoadoutCategory(rawValue: categoryRaw) }
         set { categoryRaw = newValue.rawValue }
     }
 

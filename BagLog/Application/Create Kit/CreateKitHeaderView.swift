@@ -6,6 +6,7 @@ struct CreateKitHeaderView: View {
     @Bindable var store: CreateKitStore
     let focus: FocusState<CreateKitFocusField?>.Binding
     let accessibilityTitle: String
+    let topics: [CreateKitTopic]
 
     var body: some View {
         VStack(alignment: .leading, spacing: CreateKitDesign.sectionSpacing) {
@@ -56,26 +57,12 @@ struct CreateKitHeaderView: View {
             .focused(focus, equals: .summary)
             .onChange(of: draft.summary, store.markTextChanged)
 
-            Picker(selection: $draft.category) {
-                ForEach(LoadoutCategory.allCases, id: \.self) { category in
-                    Label(category.createKitTitle, systemImage: category.createKitSymbol)
-                        .tag(category)
-                }
-            } label: {
-                Label(draft.category.createKitTitle, systemImage: draft.category.createKitSymbol)
-                    .font(.headline)
-                    .padding(.horizontal, 14)
-                    .frame(minHeight: 44)
-                    .background(.black.opacity(0.34), in: .capsule)
-                    .overlay {
-                        Capsule()
-                            .stroke(.white.opacity(0.54), lineWidth: 1)
-                    }
-            }
-            .pickerStyle(.menu)
-            .tint(.white)
-            .onChange(of: draft.category, store.markStructureChanged)
-            .accessibilityLabel("Kit category")
+            CreateKitTopicButton(
+                selection: $draft.category,
+                topics: topics,
+                store: store,
+                parentFocus: focus
+            )
         }
         .accessibilityElement(children: .contain)
     }

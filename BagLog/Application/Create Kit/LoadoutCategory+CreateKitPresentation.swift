@@ -13,6 +13,7 @@ extension LoadoutCategory {
         case .fitness: "Fitness"
         case .parenting: "Parenting"
         case .other: "Other"
+        default: fallbackTitle
         }
     }
 
@@ -28,6 +29,14 @@ extension LoadoutCategory {
         case .fitness: "dumbbell"
         case .parenting: "figure.and.child.holdinghands"
         case .other: "backpack"
+        default: "square.grid.2x2"
         }
+    }
+
+    private var fallbackTitle: String {
+        rawValue
+            .replacingOccurrences(of: "-", with: " ")
+            .replacingOccurrences(of: "_", with: " ")
+            .localizedCapitalized
     }
 }

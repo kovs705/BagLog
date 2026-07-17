@@ -108,6 +108,32 @@ struct CreateKitDraftTests {
         #expect(store.draft?.items.map(\.title) == ["Water", "Camera", "Passport"])
     }
 
+    @Test("Backend topic identifiers remain selectable and searchable")
+    func backendTopics() throws {
+        let category = LoadoutCategory(rawValue: "winter-bike-commute")
+        let topic = CreateKitTopic(
+            id: category.rawValue,
+            title: "Winter Bike Commute",
+            symbol: "snowflake",
+            keywords: ["cycling", "cold weather"]
+        )
+        var draft = CreateKitDraft(ownerID: UUID())
+        draft.category = category
+
+        let encodedCategory = try JSONEncoder().encode(category)
+        let decodedCategory = try JSONDecoder().decode(LoadoutCategory.self, from: encodedCategory)
+        let catalog = CreateKitTopic.catalog(CreateKitTopic.bundled, including: category)
+
+        #expect(draft.command(status: .draft).category.rawValue == "winter-bike-commute")
+        #expect(decodedCategory == category)
+        #expect(catalog.first?.category == category)
+        #expect(catalog.count == CreateKitTopic.bundled.count + 1)
+        #expect(CreateKitTopic.catalog(catalog, including: category).count == catalog.count)
+        #expect(topic.matches("bike"))
+        #expect(topic.matches("cold"))
+        #expect(!topic.matches("camera"))
+    }
+
     @Test("Photo menu movement preserves an explicit cover-first order")
     func photoReorder() {
         let store = CreateKitStore()
