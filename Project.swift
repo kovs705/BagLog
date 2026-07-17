@@ -137,6 +137,16 @@ let project = Project(
                         "UTTypeTagSpecification": [
                             "public.filename-extension": ["baglogbackup"]
                         ]
+                    ],
+                    [
+                        "UTTypeIdentifier": "com.codingkovs.BagLog.kit-item",
+                        "UTTypeDescription": "BagLog Kit Item",
+                        "UTTypeConformsTo": ["public.data"]
+                    ],
+                    [
+                        "UTTypeIdentifier": "com.codingkovs.BagLog.kit-photo",
+                        "UTTypeDescription": "BagLog Kit Photo",
+                        "UTTypeConformsTo": ["public.data"]
                     ]
                 ],
                 "UILaunchScreen": [

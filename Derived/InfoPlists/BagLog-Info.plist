@@ -82,6 +82,26 @@
 				</array>
 			</dict>
 		</dict>
+		<dict>
+			<key>UTTypeConformsTo</key>
+			<array>
+				<string>public.data</string>
+			</array>
+			<key>UTTypeDescription</key>
+			<string>BagLog Kit Item</string>
+			<key>UTTypeIdentifier</key>
+			<string>com.codingkovs.BagLog.kit-item</string>
+		</dict>
+		<dict>
+			<key>UTTypeConformsTo</key>
+			<array>
+				<string>public.data</string>
+			</array>
+			<key>UTTypeDescription</key>
+			<string>BagLog Kit Photo</string>
+			<key>UTTypeIdentifier</key>
+			<string>com.codingkovs.BagLog.kit-photo</string>
+		</dict>
 	</array>
 </dict>
 </plist>
