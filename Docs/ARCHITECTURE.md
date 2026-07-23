@@ -56,6 +56,9 @@ types; it does not decide how a screen looks or when a server request runs.
   public API, folder structure, known gaps, and what is intentionally deferred.
 - [Create Kit editor](CREATE_KIT_EDITOR.md) documents draft saving, media
   ownership, validation, focus routing, and publication hand-off.
+- [Optional account authentication](AUTHENTICATION.md) documents the post-1.0
+  Google sign-in boundary, Keychain session lifecycle, configuration, privacy
+  review, and production-release blockers.
 - [Project description](PROJECT_DESCRIPTION.md) describes the product and user
   journey.
 - [Release 1.0](RELEASE_1_0.md) is the shipping scope and acceptance criteria
@@ -71,3 +74,7 @@ status scopes and the shared masonry layout; cover thumbnails come from the
 first ordered image asset, with a category fallback when a kit has no cover.
 The remaining V1 product gap is the end-to-end fork journey and its catalogue
 affordances.
+
+Post-1.0 account work begins with optional Google authentication behind My
+Profile. It is composed independently from `Persistence`: guest access remains
+the default, local models are unchanged, and no synchronization is implied.

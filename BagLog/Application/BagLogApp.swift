@@ -11,14 +11,17 @@ import SwiftData
 import SwiftUI
 
 @main
+@MainActor
 struct BagLogApp: App {
 
     @State private var router = Router()
+    @State private var authenticationStore: AuthenticationStore
     private let modelContainer: ModelContainer
     private let persistence: any BagLogPersisting
     private let mediaStore: any MediaStoring
 
     init() {
+        _authenticationStore = State(initialValue: AuthenticationComposition.make())
         do {
             let isUITesting = ProcessInfo.processInfo.arguments.contains("--ui-testing")
             let modelContainer = try BagLogModelContainer.make(
@@ -43,9 +46,16 @@ struct BagLogApp: App {
         WindowGroup {
             MainView()
                 .environment(router)
+                .environment(authenticationStore)
                 .environment(\.bagLogPersistence, persistence)
                 .environment(\.bagLogMediaStore, mediaStore)
                 .modelContainer(modelContainer)
+                .task {
+                    await authenticationStore.restore()
+                }
+                .onOpenURL { url in
+                    authenticationStore.handle(url)
+                }
         }
     }
 }

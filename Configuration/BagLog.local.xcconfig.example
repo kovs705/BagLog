@@ -1,0 +1,6 @@
+// Copy this file to BagLog.local.xcconfig, which is ignored by Git.
+// Client IDs and API origins are configuration, not secrets. Never add a client secret.
+BAGLOG_API_BASE_URL = https:/$()/development-api.example.com
+BAGLOG_GOOGLE_IOS_CLIENT_ID = 000000000000-example.apps.googleusercontent.com
+BAGLOG_GOOGLE_SERVER_CLIENT_ID = 000000000000-server.apps.googleusercontent.com
+BAGLOG_GOOGLE_REVERSED_CLIENT_ID = com.googleusercontent.apps.000000000000-example
