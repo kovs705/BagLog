@@ -15,7 +15,11 @@ let project = Project(
     packages: [
         .local(path: "BagLogPackage"),
         .remote(url: "https://github.com/kovs705/PreviewDebugger", requirement: .branch("main")),
-        .remote(url: "https://github.com/kovs705/AccessDenied.git", requirement: .branch("main"))
+        .remote(url: "https://github.com/kovs705/AccessDenied.git", requirement: .branch("main")),
+        .remote(
+            url: "https://github.com/google/GoogleSignIn-iOS",
+            requirement: .exact("9.0.0")
+        )
     ],
     settings: .settings(
         base: [
@@ -94,7 +98,9 @@ let project = Project(
             sources: [
                 "Services/**"
             ],
-            dependencies: [],
+            dependencies: [
+                .package(product: "GoogleSignIn")
+            ],
             settings: .settings(
                 base: [
                     "GENERATE_INFOPLIST_FILE": "YES",
@@ -129,6 +135,17 @@ let project = Project(
                 "NSRemindersFullAccessUsageDescription": "To work with your tasks.",
                 "NSLocationWhenInUseUsageDescription": "For proper working of the map.",
                 "NSPhotoLibraryAddUsageDescription": "To add new stickers on the device",
+                "BAGLOG_API_BASE_URL": "$(BAGLOG_API_BASE_URL)",
+                "GIDClientID": "$(BAGLOG_GOOGLE_IOS_CLIENT_ID)",
+                "GIDServerClientID": "$(BAGLOG_GOOGLE_SERVER_CLIENT_ID)",
+                "CFBundleURLTypes": [
+                    [
+                        "CFBundleTypeRole": "Editor",
+                        "CFBundleURLSchemes": [
+                            "$(BAGLOG_GOOGLE_REVERSED_CLIENT_ID)"
+                        ]
+                    ]
+                ],
                 "UTExportedTypeDeclarations": [
                     [
                         "UTTypeIdentifier": "com.codingkovs.BagLog.backup",
@@ -170,7 +187,8 @@ let project = Project(
                 .target(name: "Services"),
                 .package(product: "Persistence"),
                 .package(product: "PreviewDebugger"),
-                .package(product: "AccessDenied")
+                .package(product: "AccessDenied"),
+                .package(product: "GoogleSignInSwift")
             ],
             settings: .settings(
                 base: [
@@ -183,6 +201,16 @@ let project = Project(
                     "CURRENT_PROJECT_VERSION": "$(MARKETING_VERSION)",
                     "INFOPLIST_KEY_LSApplicationCategoryType": "public.app-category.productivity",
                     "MY_SETTING": "platform ${platform}"
+                ],
+                configurations: [
+                    .debug(
+                        name: "Debug",
+                        xcconfig: "Configuration/BagLog.xcconfig"
+                    ),
+                    .release(
+                        name: "Release",
+                        xcconfig: "Configuration/BagLog.xcconfig"
+                    )
                 ]
             )
         ),

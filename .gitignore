@@ -95,6 +95,8 @@ package.resolved
 .swiftpm
 
 .build/
+Derived/Sources/
+Configuration/BagLog.local.xcconfig
 
 # CocoaPods
 # We recommend against adding the Pods directory to your .gitignore. However
@@ -145,3 +147,7 @@ xcuserdata
 *.save
 ._*
 *.bak
+
+# Generated Xcode project and workspace files.
+*.xcodeproj/
+*.xcworkspace/

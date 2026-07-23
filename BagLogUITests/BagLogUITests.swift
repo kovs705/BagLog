@@ -1,6 +1,38 @@
 import XCTest
 
 final class BagLogUITests: XCTestCase {
+    func testGoogleSignInShowsSignedOutLoadingAndSignedInStates() {
+        let app = XCUIApplication()
+        app.launchArguments = ["--ui-testing", "--auth-ui-test-success"]
+        app.launch()
+
+        app.buttons["My Profile"].tap()
+        let signInButton = app.buttons["google-sign-in-button"]
+        XCTAssertTrue(signInButton.waitForExistence(timeout: 3))
+        signInButton.tap()
+
+        XCTAssertTrue(app.descendants(matching: .any)["authentication-progress"].waitForExistence(timeout: 2))
+        XCTAssertTrue(app.descendants(matching: .any)["authentication-signed-in"].waitForExistence(timeout: 3))
+        XCTAssertTrue(app.buttons["google-sign-out-button"].exists)
+    }
+
+    func testGoogleSignInFailureCanRetry() {
+        let app = XCUIApplication()
+        app.launchArguments = ["--ui-testing", "--auth-ui-test-retry"]
+        app.launch()
+
+        app.buttons["My Profile"].tap()
+        let signInButton = app.buttons["google-sign-in-button"]
+        XCTAssertTrue(signInButton.waitForExistence(timeout: 3))
+        signInButton.tap()
+
+        let retryButton = app.buttons["authentication-retry-button"]
+        XCTAssertTrue(retryButton.waitForExistence(timeout: 3))
+        retryButton.tap()
+
+        XCTAssertTrue(app.descendants(matching: .any)["authentication-signed-in"].waitForExistence(timeout: 3))
+    }
+
     func testCreateTwoItemsAndPublishWithoutLosingKeyboardFocus() {
         let app = XCUIApplication()
         launchCleanEditor(app)

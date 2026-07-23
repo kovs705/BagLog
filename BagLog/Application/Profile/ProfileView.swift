@@ -9,29 +9,21 @@
 import SwiftUI
 
 struct ProfileView: View {
-
-    @Environment(Router.self) private var router
-
     var body: some View {
-        innerContent
-    }
-
-    // MARK: - Components
-    @ViewBuilder private var innerContent: some View {
         NavigationStack {
-            ContentUnavailableView(
-                "BagLog",
-                systemImage: "backpack",
-                description: Text("Here is your profile page")
-            )
-            .navigationTitle("Hello, Eugene")
+            List {
+                Section("Local profile") {
+                    Label(
+                        "Your local kits and profile remain available without an account.",
+                        systemImage: "iphone"
+                    )
+                }
+
+                Section("BagLog account") {
+                    ProfileAuthenticationView()
+                }
+            }
+            .navigationTitle("My Profile")
         }
     }
 }
-
-#if DEBUG
-#Preview {
-    ProfileView()
-        .environment(Router())
-}
-#endif
