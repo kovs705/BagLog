@@ -1,6 +1,15 @@
+//
+//  ProfileAuthenticationView.swift
+//  BagLog
+//
+//  Create by Eugene Kovs on 23.07.2026.
+//  https://github.com/kovs705
+//
+
 import SwiftUI
 
 struct ProfileAuthenticationView: View {
+    
     @Environment(AuthenticationStore.self) private var authenticationStore
     @Environment(\.colorScheme) private var colorScheme
 

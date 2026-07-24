@@ -29,7 +29,7 @@ struct KitDetailContentView: View {
                                     if index == 0 {
                                         Label("Cover", systemImage: "star.fill")
                                             .font(.subheadline)
-                                            .padding(8)
+                                            .labelStyle(.iconOnly)
                                             .background(.regularMaterial, in: .capsule)
                                             .padding(8)
                                     }

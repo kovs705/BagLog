@@ -1,6 +1,15 @@
+//
+//  ProfileSignedInAuthenticationView.swift
+//  BagLog
+//
+//  Create by Eugene Kovs on 23.07.2026.
+//  https://github.com/kovs705
+//
+
 import SwiftUI
 
 struct ProfileSignedInAuthenticationView: View {
+    
     let isSigningOut: Bool
     let signOut: () -> Void
 
