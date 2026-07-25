@@ -6,6 +6,7 @@
 //  https://github.com/kovs705
 //
 
+import DesignSystem
 import SwiftUI
 
 //                Section("BagLog account") {
@@ -103,12 +104,12 @@ struct ProfileView: View {
     }
     
     @ViewBuilder private var image: some View {
-        Image(.userProfile5)
+        DesignSystemAsset.userProfile5.swiftUIImage
             .resizable()
             .frame(width: 111, height: 111)
             .clipShape(.rect(cornerRadius: 20))
             .overlay {
-                Image(.frame4Aligned)
+                DesignSystemAsset.frame4Aligned.swiftUIImage
                     .resizable()
                     .frame(width: 140, height: 140)
                     .scaledToFit()

@@ -9,11 +9,11 @@ struct CreateKitStoreTests {
     @Test("A missing local profile gates the editor, then profile creation opens it")
     func profileGate() async throws {
         let persistence = EditorPersistenceSpy(profile: nil)
-        let store = CreateKitStore()
-        await store.start(
+        let store = CreateKitStore(
             presentation: .new,
             dependencies: dependencies(persistence: persistence)
         )
+        await store.start()
 
         #expect(store.phase == .needsProfile)
 
@@ -142,14 +142,14 @@ struct CreateKitStoreTests {
     func discardStagedPhoto() async throws {
         let persistence = EditorPersistenceSpy(profile: makeProfile())
         let mediaStore = EditorMediaStoreSpy()
-        let store = CreateKitStore()
-        await store.start(
+        let store = CreateKitStore(
             presentation: .new,
             dependencies: CreateKitDependencies(
                 persistence: persistence,
                 mediaStore: mediaStore
             )
         )
+        await store.start()
 
         await store.importPhoto(at: URL(fileURLWithPath: "/tmp/staged.png"))
         let fileName = try #require(store.draft?.photos.first?.localFileName)
@@ -162,14 +162,14 @@ struct CreateKitStoreTests {
     func removeCommittedPhoto() async throws {
         let persistence = EditorPersistenceSpy(profile: makeProfile())
         let mediaStore = EditorMediaStoreSpy()
-        let store = CreateKitStore()
-        await store.start(
+        let store = CreateKitStore(
             presentation: .new,
             dependencies: CreateKitDependencies(
                 persistence: persistence,
                 mediaStore: mediaStore
             )
         )
+        await store.start()
         store.draft?.title = "Photo kit"
 
         await store.importPhoto(at: URL(fileURLWithPath: "/tmp/committed.png"))
@@ -185,11 +185,11 @@ struct CreateKitStoreTests {
     }
 
     private func startedStore(persistence: EditorPersistenceSpy) async throws -> CreateKitStore {
-        let store = CreateKitStore()
-        await store.start(
+        let store = CreateKitStore(
             presentation: .new,
             dependencies: dependencies(persistence: persistence)
         )
+        await store.start()
         #expect(store.phase == .editing)
         return store
     }
@@ -322,38 +322,50 @@ private func makeLoadoutSnapshot(
         lastSyncedAt: nil,
         remoteRevision: nil,
         tagNames: command.tagNames,
-        items: command.items.enumerated().map { index, item in
-            LoadoutItemSnapshot(
-                id: item.id ?? UUID(),
-                title: item.title,
-                category: item.category,
-                brand: item.brand,
-                model: item.model,
-                notes: item.notes,
-                quantity: item.quantity,
-                sortIndex: index,
-                isEssential: item.isEssential,
-                links: item.links.enumerated().map { linkIndex, link in
-                    ItemLinkSnapshot(
-                        id: link.id ?? UUID(),
-                        urlString: link.urlString,
-                        label: link.label,
-                        sortIndex: linkIndex
-                    )
-                }
-            )
-        },
-        assets: command.assets.enumerated().map { index, asset in
-            LoadoutAssetSnapshot(
-                id: asset.id ?? UUID(),
-                mediaKind: asset.mediaKind,
-                sortIndex: index,
-                caption: asset.caption,
-                localFileName: asset.localFileName,
-                remoteURLString: asset.remoteURLString,
-                thumbnailData: asset.thumbnailData
-            )
-        },
+        items: makeItemSnapshots(command.items),
+        assets: makeAssetSnapshots(command.assets),
         forkOrigin: nil
     )
+}
+
+private func makeItemSnapshots(
+    _ commands: [LoadoutItemCommand]
+) -> [LoadoutItemSnapshot] {
+    commands.enumerated().map { index, item in
+        LoadoutItemSnapshot(
+            id: item.id ?? UUID(),
+            title: item.title,
+            category: item.category,
+            brand: item.brand,
+            model: item.model,
+            notes: item.notes,
+            quantity: item.quantity,
+            sortIndex: index,
+            isEssential: item.isEssential,
+            links: item.links.enumerated().map { linkIndex, link in
+                ItemLinkSnapshot(
+                    id: link.id ?? UUID(),
+                    urlString: link.urlString,
+                    label: link.label,
+                    sortIndex: linkIndex
+                )
+            }
+        )
+    }
+}
+
+private func makeAssetSnapshots(
+    _ commands: [LoadoutAssetCommand]
+) -> [LoadoutAssetSnapshot] {
+    commands.enumerated().map { index, asset in
+        LoadoutAssetSnapshot(
+            id: asset.id ?? UUID(),
+            mediaKind: asset.mediaKind,
+            sortIndex: index,
+            caption: asset.caption,
+            localFileName: asset.localFileName,
+            remoteURLString: asset.remoteURLString,
+            thumbnailData: asset.thumbnailData
+        )
+    }
 }
