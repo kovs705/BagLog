@@ -36,6 +36,9 @@ struct ProfileView: View {
                 infoSection
                 imageSection
             }
+            description
+            divider
+            portfolio
         }
         .padding()
     }
@@ -43,6 +46,13 @@ struct ProfileView: View {
     @ViewBuilder private var smallHeader: some View {
         Text("MY PROFILE")
             .foregroundStyle(.orange)
+            .frame(maxWidth: .infinity, alignment: .leading)
+    }
+    
+    @ViewBuilder private var divider: some View {
+        Text("––––")
+            .foregroundStyle(.orange)
+            .bold()
             .frame(maxWidth: .infinity, alignment: .leading)
     }
     
@@ -73,7 +83,6 @@ struct ProfileView: View {
                 .foregroundStyle(.secondary)
             
             Text("IPHONE 15 PRO MAX")
-                
                 .foregroundStyle(.orange)
         }
         .font(.callout)
@@ -81,13 +90,29 @@ struct ProfileView: View {
     }
     
     @ViewBuilder private var description: some View {
-        Text("Everyday caryy, one-bag traveler, and camera enthusiast.")
+        Text("Everyday carry, one-bag traveler, and camera enthusiast.")
+            .font(.callout)
+            .frame(maxWidth: .infinity, alignment: .leading)
+    }
+    
+    @ViewBuilder private var portfolio: some View {
+        Text("8 kits • 3 forks • since Jul '26")
+            .font(.callout)
+            .foregroundStyle(.secondary)
+            .frame(maxWidth: .infinity, alignment: .leading)
     }
     
     @ViewBuilder private var image: some View {
-        RoundedRectangle(cornerRadius: 24)
-            .fill(.gray)
+        Image(.userProfile5)
+            .resizable()
             .frame(width: 111, height: 111)
+            .clipShape(.rect(cornerRadius: 20))
+            .overlay {
+                Image(.frame4Aligned)
+                    .resizable()
+                    .frame(width: 140, height: 140)
+                    .scaledToFit()
+            }
     }
 }
 
