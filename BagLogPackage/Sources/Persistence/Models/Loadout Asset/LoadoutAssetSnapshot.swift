@@ -8,7 +8,7 @@
 
 import Foundation
 
-public struct LoadoutAssetSnapshot: Sendable, Equatable, Identifiable {
+public struct LoadoutAssetSnapshot: Codable, Sendable, Equatable, Identifiable {
     public let id: UUID
     public let mediaKind: LoadoutMediaKind
     public let sortIndex: Int

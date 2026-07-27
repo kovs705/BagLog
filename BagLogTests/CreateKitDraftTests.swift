@@ -29,6 +29,39 @@ struct CreateKitDraftTests {
         #expect(draft.canPublish)
     }
 
+    @Test("Tags are trimmed and duplicate names are rejected without changing order")
+    func tagEditing() {
+        var draft = CreateKitDraft(ownerID: UUID())
+
+        let didAddTravel = draft.addTag("  Travel  ")
+        let didAddDuplicate = draft.addTag("travel")
+        let didAddCarryOn = draft.addTag("Carry-on")
+
+        #expect(didAddTravel)
+        #expect(!didAddDuplicate)
+        #expect(didAddCarryOn)
+        #expect(draft.tagNames == ["Travel", "Carry-on"])
+    }
+
+    @Test("Photo capacity never exceeds the domain limit")
+    func photoCapacity() {
+        var draft = CreateKitDraft(ownerID: UUID())
+
+        for index in 0...CreateKitDraft.maximumPhotoCount {
+            draft.addPhoto(
+                CreateKitPhotoDraft(
+                    id: UUID(),
+                    localFileName: "\(index).jpg",
+                    thumbnailData: Data([UInt8(index)])
+                )
+            )
+        }
+
+        #expect(draft.photos.count == CreateKitDraft.maximumPhotoCount)
+        #expect(!draft.canAddPhoto)
+        #expect(draft.remainingPhotoCapacity == 0)
+    }
+
     @Test("Publishing maps every editor field and preserves order")
     func commandMapping() {
         var draft = CreateKitDraft(ownerID: UUID())
@@ -83,29 +116,21 @@ struct CreateKitDraftTests {
 
     @Test("Composer insertion trims input and reorder operations are deterministic")
     func composerAndReorder() {
-        let store = CreateKitStore()
-        store.draft = CreateKitDraft(ownerID: UUID())
-        store.composerText = "  Camera  "
-        store.addComposedItem()
-        store.composerText = "Water"
-        store.addComposedItem()
-        store.composerText = "Passport"
-        store.addComposedItem()
+        var draft = CreateKitDraft(ownerID: UUID())
+        draft.addItem(named: "  Camera  ")
+        draft.addItem(named: "Water")
+        draft.addItem(named: "Passport")
 
-        #expect(store.draft?.items.map(\.title) == ["Camera", "Water", "Passport"])
+        #expect(draft.items.map(\.title) == ["Camera", "Water", "Passport"])
 
-        let passportID = store.draft?.items[2].id
-        if let passportID {
-            store.moveItemUp(id: passportID)
-        }
-        #expect(store.draft?.items.map(\.title) == ["Camera", "Passport", "Water"])
+        let passportID = draft.items[2].id
+        draft.moveItemUp(id: passportID)
+        #expect(draft.items.map(\.title) == ["Camera", "Passport", "Water"])
 
-        let cameraID = store.draft?.items[0].id
-        let waterID = store.draft?.items[2].id
-        if let cameraID, let waterID {
-            store.moveItem(id: waterID, before: cameraID)
-        }
-        #expect(store.draft?.items.map(\.title) == ["Water", "Camera", "Passport"])
+        let cameraID = draft.items[0].id
+        let waterID = draft.items[2].id
+        draft.moveItem(id: waterID, before: cameraID)
+        #expect(draft.items.map(\.title) == ["Water", "Camera", "Passport"])
     }
 
     @Test("Backend topic identifiers remain selectable and searchable")
@@ -136,22 +161,19 @@ struct CreateKitDraftTests {
 
     @Test("Photo menu movement preserves an explicit cover-first order")
     func photoReorder() {
-        let store = CreateKitStore()
         var draft = CreateKitDraft(ownerID: UUID())
         draft.photos = [
             CreateKitPhotoDraft(id: UUID(), localFileName: "one.jpg", thumbnailData: Data([1])),
             CreateKitPhotoDraft(id: UUID(), localFileName: "two.jpg", thumbnailData: Data([2])),
             CreateKitPhotoDraft(id: UUID(), localFileName: "three.jpg", thumbnailData: Data([3]))
         ]
-        store.draft = draft
-
         let firstID = draft.photos[0].id
         let thirdID = draft.photos[2].id
-        store.movePhotoLater(id: firstID)
-        store.movePhotoEarlier(id: thirdID)
+        draft.movePhotoLater(id: firstID)
+        draft.movePhotoEarlier(id: thirdID)
 
-        #expect(store.draft?.photos.map(\.localFileName) == ["two.jpg", "three.jpg", "one.jpg"])
-        store.makeCover(photoID: firstID)
-        #expect(store.draft?.photos.first?.localFileName == "one.jpg")
+        #expect(draft.photos.map(\.localFileName) == ["two.jpg", "three.jpg", "one.jpg"])
+        draft.makeCover(photoID: firstID)
+        #expect(draft.photos.first?.localFileName == "one.jpg")
     }
 }

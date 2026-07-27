@@ -21,6 +21,10 @@ struct MyKitCardMetadata: View {
             } icon: {
                 Image(systemName: "calendar")
             }
+
+            if loadout.syncState != .local {
+                LoadoutSyncStatusBadge(state: loadout.syncState)
+            }
         }
         .font(.subheadline)
         .foregroundStyle(.secondary)

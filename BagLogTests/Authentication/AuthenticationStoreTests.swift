@@ -191,12 +191,15 @@ struct AuthenticationStoreTests {
         )
         let storage = TestAuthenticationSessionStorage(session: initialSession)
         let clock = TestAuthenticationClock(now: now)
+        let sessionController = BagLogSessionController(
+            api: api,
+            storage: storage,
+            clock: clock
+        )
         let store = AuthenticationStore(
             dependencies: AuthenticationDependencies(
                 identityProvider: provider,
-                api: api,
-                sessionStorage: storage,
-                clock: clock
+                sessionController: sessionController
             )
         )
         await store.restore()
@@ -279,12 +282,15 @@ struct AuthenticationStoreTests {
         api: TestAuthenticationAPI,
         storage: TestAuthenticationSessionStorage
     ) -> AuthenticationStore {
-        AuthenticationStore(
+        let sessionController = BagLogSessionController(
+            api: api,
+            storage: storage,
+            clock: TestAuthenticationClock(now: now)
+        )
+        return AuthenticationStore(
             dependencies: AuthenticationDependencies(
                 identityProvider: provider,
-                api: api,
-                sessionStorage: storage,
-                clock: TestAuthenticationClock(now: now)
+                sessionController: sessionController
             )
         )
     }

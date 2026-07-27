@@ -8,7 +8,7 @@
 
 import Foundation
 
-public struct ForkOriginSnapshot: Sendable, Equatable {
+public struct ForkOriginSnapshot: Codable, Sendable, Equatable {
     public let sourceLoadoutID: UUID
     public let sourceRemoteID: String?
     public let rootLoadoutID: UUID

@@ -30,7 +30,7 @@ extension SwiftDataPersistence {
         loadout.visibility = command.visibility
         loadout.status = command.status
         loadout.updatedAt = now
-        loadout.syncState = command.status == .published ? .pendingUpload : .local
+        loadout.syncState = .local
         if command.status == .published, loadout.publishedAt == nil { loadout.publishedAt = now }
         loadout.archivedAt = command.status == .archived ? now : nil
     }

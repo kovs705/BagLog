@@ -11,6 +11,8 @@ import Foundation
 public enum LoadoutSyncState: String, Codable, Sendable {
     case local
     case pendingUpload
+    case waiting
     case synced
     case failed
+    case conflicted
 }

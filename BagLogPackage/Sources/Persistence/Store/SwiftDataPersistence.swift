@@ -38,8 +38,9 @@ public protocol BagLogPersisting: Sendable {
     func deleteLoadout(id: UUID) async throws
 }
 
-public actor SwiftDataPersistence: BagLogPersisting {
+public actor SwiftDataPersistence: BagLogSyncPersisting {
     let modelContext: ModelContext
+    var activeSyncScopeID: UUID?
 
     public init(modelContainer: ModelContainer) {
         modelContext = ModelContext(modelContainer)
@@ -93,61 +94,87 @@ public actor SwiftDataPersistence: BagLogPersisting {
     public func saveLoadout(_ command: SaveLoadoutCommand) throws -> LoadoutSnapshot {
         try validate(command)
 
-        let now = Date.now
-        let loadout = try loadoutToSave(for: command, now: now)
-        apply(command, to: loadout, now: now)
-        try replaceTags(on: loadout, with: command.tagNames, now: now)
-        try replaceItems(on: loadout, with: command.items)
-        try replaceAssets(on: loadout, with: command.assets)
+        do {
+            let now = Date.now
+            let loadout = try loadoutToSave(for: command, now: now)
+            let wasEligibleForSync = isEligibleForPrivateSync(loadout)
+            apply(command, to: loadout, now: now)
+            try replaceTags(on: loadout, with: command.tagNames, now: now)
+            try replaceItems(on: loadout, with: command.items)
+            try replaceAssets(on: loadout, with: command.assets)
+            try recordLocalSyncChange(
+                for: loadout,
+                wasEligible: wasEligibleForSync,
+                at: now
+            )
 
-        try saveChanges()
-        return loadoutSnapshot(loadout)
+            let snapshot = try loadoutSnapshot(loadout)
+            try saveChanges()
+            return snapshot
+        } catch {
+            modelContext.rollback()
+            throw error
+        }
     }
 
     public func forkLoadout(_ command: ForkLoadoutCommand) throws -> LoadoutSnapshot {
-        let source = try requiredLoadout(id: command.sourceLoadoutID)
-        guard source.visibility == .public, source.status == .published else {
-            throw PersistenceError.sourceIsNotPublic
+        do {
+            let source = try requiredLoadout(id: command.sourceLoadoutID)
+            guard source.visibility == .public, source.status == .published else {
+                throw PersistenceError.sourceIsNotPublic
+            }
+
+            let owner = try requiredProfile(id: command.ownerID)
+            let now = Date.now
+            let fork = Loadout(
+                ownerID: owner.id,
+                title: try forkTitle(from: command, source: source),
+                summary: source.summary,
+                category: source.category,
+                visibility: .private,
+                status: .draft,
+                createdAt: now,
+                updatedAt: now
+            )
+            fork.owner = owner
+            fork.tags = source.tags
+            fork.items = source.items
+                .sorted(using: KeyPathComparator(\.sortIndex))
+                .enumerated()
+                .map(cloneItem)
+            fork.assets = source.assets
+                .sorted(using: KeyPathComparator(\.sortIndex))
+                .enumerated()
+                .compactMap(cloneAsset)
+            fork.forkOrigin = ForkOrigin(
+                sourceLoadoutID: source.id,
+                sourceRemoteID: source.remoteID,
+                rootLoadoutID: source.forkOrigin?.rootLoadoutID ?? source.id,
+                sourceTitle: source.title,
+                sourceAuthorHandle: source.owner?.handle ?? "unknown",
+                forkedAt: now
+            )
+
+            modelContext.insert(fork)
+            try recordLocalSyncChange(for: fork, wasEligible: false, at: now)
+            let snapshot = try loadoutSnapshot(fork)
+            try saveChanges()
+            return snapshot
+        } catch {
+            modelContext.rollback()
+            throw error
         }
-
-        let owner = try requiredProfile(id: command.ownerID)
-        let now = Date.now
-        let fork = Loadout(
-            ownerID: owner.id,
-            title: try forkTitle(from: command, source: source),
-            summary: source.summary,
-            category: source.category,
-            visibility: .private,
-            status: .draft,
-            createdAt: now,
-            updatedAt: now
-        )
-        fork.owner = owner
-        fork.tags = source.tags
-        fork.items = source.items
-            .sorted(using: KeyPathComparator(\.sortIndex))
-            .enumerated()
-            .map(cloneItem)
-        fork.assets = source.assets
-            .sorted(using: KeyPathComparator(\.sortIndex))
-            .enumerated()
-            .compactMap(cloneAsset)
-        fork.forkOrigin = ForkOrigin(
-            sourceLoadoutID: source.id,
-            sourceRemoteID: source.remoteID,
-            rootLoadoutID: source.forkOrigin?.rootLoadoutID ?? source.id,
-            sourceTitle: source.title,
-            sourceAuthorHandle: source.owner?.handle ?? "unknown",
-            forkedAt: now
-        )
-
-        modelContext.insert(fork)
-        try saveChanges()
-        return loadoutSnapshot(fork)
     }
 
     public func deleteLoadout(id: UUID) throws {
-        modelContext.delete(try requiredLoadout(id: id))
-        try saveChanges()
+        do {
+            let loadout = try requiredLoadout(id: id)
+            try recordLocalDeletion(of: loadout, at: .now)
+            modelContext.delete(loadout)
+            try saveChanges()
+        } catch {
+            modelContext.rollback()
+            throw error
+        }
     }
 }

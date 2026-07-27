@@ -2,24 +2,57 @@ import Foundation
 import Synchronization
 
 final class TestURLProtocol: URLProtocol {
-    private static let response = Mutex<(statusCode: Int, data: Data, errorCode: URLError.Code?)>(
-        (200, Data(), nil)
-    )
-    private static let recordedRequest = Mutex<URLRequest?>(nil)
+    struct Stub: Sendable {
+        let statusCode: Int
+        let data: Data
+        let headers: [String: String]
+        let errorCode: URLError.Code?
+
+        init(
+            statusCode: Int = 200,
+            data: Data = Data(),
+            headers: [String: String] = [:],
+            errorCode: URLError.Code? = nil
+        ) {
+            self.statusCode = statusCode
+            self.data = data
+            self.headers = headers
+            self.errorCode = errorCode
+        }
+    }
+
+    private static let responses = Mutex<[Stub]>([Stub()])
+    private static let recordedRequests = Mutex<[URLRequest]>([])
 
     static func configure(
         statusCode: Int = 200,
         data: Data = Data(),
+        headers: [String: String] = [:],
         errorCode: URLError.Code? = nil
     ) {
-        response.withLock {
-            $0 = (statusCode, data, errorCode)
-        }
-        recordedRequest.withLock { $0 = nil }
+        configure(
+            stubs: [
+                Stub(
+                    statusCode: statusCode,
+                    data: data,
+                    headers: headers,
+                    errorCode: errorCode
+                )
+            ]
+        )
+    }
+
+    static func configure(stubs: [Stub]) {
+        responses.withLock { $0 = stubs }
+        recordedRequests.withLock { $0 = [] }
     }
 
     static func request() -> URLRequest? {
-        recordedRequest.withLock { $0 }
+        recordedRequests.withLock { $0.last }
+    }
+
+    static func requests() -> [URLRequest] {
+        recordedRequests.withLock { $0 }
     }
 
     override class func canInit(with request: URLRequest) -> Bool {
@@ -46,8 +79,13 @@ final class TestURLProtocol: URLProtocol {
             }
             recordedRequest.httpBody = body
         }
-        Self.recordedRequest.withLock { $0 = recordedRequest }
-        let stub = Self.response.withLock { $0 }
+        Self.recordedRequests.withLock { $0.append(recordedRequest) }
+        let stub = Self.responses.withLock {
+            guard !$0.isEmpty else {
+                return Stub(statusCode: 500)
+            }
+            return $0.removeFirst()
+        }
 
         if let errorCode = stub.errorCode {
             client?.urlProtocol(self, didFailWithError: URLError(errorCode))
@@ -59,7 +97,10 @@ final class TestURLProtocol: URLProtocol {
                 url: url,
                 statusCode: stub.statusCode,
                 httpVersion: "HTTP/1.1",
-                headerFields: ["Content-Type": "application/json"]
+                headerFields: stub.headers.merging(
+                    ["Content-Type": "application/json"],
+                    uniquingKeysWith: { first, _ in first }
+                )
               ) else {
             client?.urlProtocol(self, didFailWithError: URLError(.badServerResponse))
             return

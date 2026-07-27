@@ -34,12 +34,20 @@ extension SwiftDataPersistence {
         do {
             return try modelContext.fetch(descriptor).map(loadoutSnapshot)
         } catch {
+            if let error = error as? LoadoutSyncPersistenceError {
+                throw error
+            }
             throw PersistenceError.queryFailed
         }
     }
 
     func saveChanges() throws {
-        do { try modelContext.save() } catch { throw PersistenceError.saveFailed }
+        do {
+            try modelContext.save()
+        } catch {
+            modelContext.rollback()
+            throw PersistenceError.saveFailed
+        }
     }
 
     func normalizedOptionalText(_ value: String?) -> String? {
@@ -75,8 +83,33 @@ extension SwiftDataPersistence {
         UserProfileSnapshot(id: profile.id, handle: profile.handle, displayName: profile.displayName, bio: profile.bio, avatarAssetID: profile.avatarAssetID, createdAt: profile.createdAt, updatedAt: profile.updatedAt)
     }
 
-    func loadoutSnapshot(_ loadout: Loadout) -> LoadoutSnapshot {
-        LoadoutSnapshot(id: loadout.id, ownerID: loadout.ownerID, remoteID: loadout.remoteID, title: loadout.title, summary: loadout.summary, category: loadout.category, visibility: loadout.visibility, status: loadout.status, syncState: loadout.syncState, createdAt: loadout.createdAt, updatedAt: loadout.updatedAt, publishedAt: loadout.publishedAt, archivedAt: loadout.archivedAt, lastSyncedAt: loadout.lastSyncedAt, remoteRevision: loadout.remoteRevision, tagNames: loadout.tags.map(\.name).sorted(), items: loadout.items.sorted(using: KeyPathComparator(\.sortIndex)).map(itemSnapshot), assets: loadout.assets.sorted(using: KeyPathComparator(\.sortIndex)).map(assetSnapshot), forkOrigin: loadout.forkOrigin.map(forkOriginSnapshot))
+    func loadoutSnapshot(_ loadout: Loadout) throws -> LoadoutSnapshot {
+        let metadata = try fetchSyncMetadata(loadoutID: loadout.id)
+        return LoadoutSnapshot(
+            id: loadout.id,
+            ownerID: loadout.ownerID,
+            remoteID: loadout.remoteID,
+            title: loadout.title,
+            summary: loadout.summary,
+            category: loadout.category,
+            visibility: loadout.visibility,
+            status: loadout.status,
+            syncState: try derivedSyncState(loadoutID: loadout.id, metadata: metadata),
+            createdAt: loadout.createdAt,
+            updatedAt: loadout.updatedAt,
+            publishedAt: loadout.publishedAt,
+            archivedAt: loadout.archivedAt,
+            lastSyncedAt: metadata?.lastSyncedAt,
+            remoteRevision: metadata?.acknowledgedRevision,
+            tagNames: loadout.tags.map(\.name).sorted(),
+            items: loadout.items
+                .sorted(using: KeyPathComparator(\.sortIndex))
+                .map(itemSnapshot),
+            assets: loadout.assets
+                .sorted(using: KeyPathComparator(\.sortIndex))
+                .map(assetSnapshot),
+            forkOrigin: loadout.forkOrigin.map(forkOriginSnapshot)
+        )
     }
 
     func itemSnapshot(_ item: LoadoutItem) -> LoadoutItemSnapshot {

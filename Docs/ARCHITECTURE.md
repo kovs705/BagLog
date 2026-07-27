@@ -13,23 +13,31 @@ create a loadout → add items → publish locally → fork → edit the fork
 ```
 
 Networking, authentication, subscriptions, discovery, reactions, and a global
-product catalogue are outside the V1 implementation boundary.
+product catalogue remain outside the Release 1.0 boundary.
 
-The proposed post-V1 server, database, offline sync contract, Raspberry Pi
-deployment, and scale-out path are documented separately in
-[Backend architecture](BACKEND_ARCHITECTURE.md). That proposal does not change
-the Release 1.0 boundary.
+The post-1.0 codebase now contains optional Google authentication and the
+Milestone 2 private-draft sync client. Both are development-only additions and
+do not change the local-first Release 1.0 path. The server, database, sync
+contract, Raspberry Pi deployment, and scale-out path are documented in
+[Backend architecture](BACKEND_ARCHITECTURE.md).
 
 ## Module boundary
 
 ```text
 BagLog app
-    │
+    ├── Application
+    │     ├── composes authentication and sync
+    │     ├── owns scene/feature/authentication gates
+    │     └── presents local sync and conflict state
+    ├── Services
+    │     ├── Authentication and shared session controller
+    │     ├── HTTPS loadout API adapter
+    │     └── actor-isolated sync orchestration
     └── Persistence package
-          ├── Models       SwiftData records and relationships
+          ├── Models       SwiftData aggregates and durable sync records
           ├── Types        immutable input and output values
           ├── Store        actor-isolated persistence API
-          ├── Schema       SwiftData schema and migrations
+          ├── Schema       versioned SwiftData schema and migrations
           └── Media        Application Support file storage
 ```
 
@@ -37,7 +45,7 @@ BagLog app
 clients, StoreKit, and authentication. It stores local data and exposes value
 types; it does not decide how a screen looks or when a server request runs.
 
-## V1 rules
+## Local data rules
 
 - SwiftData is the only local database.
 - `Loadout` owns its items, assets, and fork attribution.
@@ -49,16 +57,23 @@ types; it does not decide how a screen looks or when a server request runs.
   boundary.
 - The store saves explicitly after a successful operation; it does not rely on
   autosave.
+- An eligible local draft write and its logical sync intention commit in the
+  same SwiftData transaction.
+- Transport DTOs remain in `Services`; `Persistence` has no dependency on
+  URLSession, authentication, SwiftUI, or the backend wire format.
+- Private sync is account-scoped. Attempts retain their exact encoded body,
+  idempotency key, operation, and expected revision across retries.
+- Remote conflicts and tombstones never silently overwrite unsent local work.
 
 ## Documentation
 
-- [Persistence V1](PERSISTENCE.md) describes the current implementation,
-  public API, folder structure, known gaps, and what is intentionally deferred.
+- [Persistence](PERSISTENCE.md) describes the V3 local schema, durable sync
+  state, migration, public boundaries, and intentionally deferred concerns.
 - [Create Kit editor](CREATE_KIT_EDITOR.md) documents draft saving, media
   ownership, validation, focus routing, and publication hand-off.
-- [Optional account authentication](AUTHENTICATION.md) documents the post-1.0
-  Google sign-in boundary, Keychain session lifecycle, configuration, privacy
-  review, and production-release blockers.
+- [Optional account authentication](AUTHENTICATION.md) documents Google
+  sign-in, the shared Keychain-backed session controller, synchronization
+  integration, privacy review, and production-release blockers.
 - [Project description](PROJECT_DESCRIPTION.md) describes the product and user
   journey.
 - [Release 1.0](RELEASE_1_0.md) is the shipping scope and acceptance criteria
@@ -68,13 +83,18 @@ types; it does not decide how a screen looks or when a server request runs.
 
 The persistence and media actors are wired into the `BagLog` composition root.
 Create Kit owns the local profile prerequisite, continuously saved drafts,
-photo staging, item editing, and local publication. My Kits reopens drafts in
-that editor and sends published loadouts to read-only detail. Its library uses
-status scopes and the shared masonry layout; cover thumbnails come from the
-first ordered image asset, with a category fallback when a kit has no cover.
-The remaining V1 product gap is the end-to-end fork journey and its catalogue
-affordances.
+photo staging, item editing, local publication, and explicit conflict
+resolution. My Kits reopens drafts in that editor, shows local synchronization
+state, and sends published loadouts to read-only detail.
 
-Post-1.0 account work begins with optional Google authentication behind My
-Profile. It is composed independently from `Persistence`: guest access remains
-the default, local models are unchanged, and no synchronization is implied.
+Optional Google authentication and private-draft synchronization share one
+session actor. The sync coordinator runs only in a foreground DEBUG build when
+`BAGLOG_PRIVATE_SYNC_ENABLED` is exactly `YES` (or the UI-test override is
+present), a BagLog session is valid, and a local/remote profile scope has been
+established. Guest and disabled-flag workflows make no sync requests.
+
+SwiftData remains the immediate source of truth. The engine first resumes any
+immutable in-flight attempt, then pushes new durable work, bootstraps or pulls
+remote changes, and advances cursors only with the transaction that applies a
+complete page. Conflicts are durable and offer keep-local, use-remote,
+duplicate-local, and keep-deleted outcomes.

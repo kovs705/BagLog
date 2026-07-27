@@ -2,7 +2,11 @@ import Foundation
 
 public enum AuthenticationRedirectPolicy {
     public static func allowsRedirect(from sourceURL: URL, to destinationURL: URL) -> Bool {
-        normalizedOrigin(for: sourceURL) == normalizedOrigin(for: destinationURL)
+        guard sourceURL.scheme?.lowercased() == "https",
+              destinationURL.scheme?.lowercased() == "https" else {
+            return false
+        }
+        return normalizedOrigin(for: sourceURL) == normalizedOrigin(for: destinationURL)
     }
 
     private static func normalizedOrigin(for url: URL) -> String? {

@@ -6,11 +6,8 @@
 //  https://github.com/kovs705
 //
 
+import DesignSystem
 import SwiftUI
-
-//                Section("BagLog account") {
-//                    ProfileAuthenticationView()
-//                }
 
 struct ProfileView: View {
     
@@ -23,7 +20,10 @@ struct ProfileView: View {
     @ViewBuilder private var innerContent: some View {
         NavigationStack {
             ScrollView {
-                header
+                VStack(spacing: 24) {
+                    header
+                    account
+                }
             }
             .toolbar(.hidden)
         }
@@ -41,6 +41,18 @@ struct ProfileView: View {
             portfolio
         }
         .padding()
+    }
+
+    @ViewBuilder private var account: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("BAGLOG ACCOUNT")
+                .foregroundStyle(.orange)
+
+            ProfileAuthenticationView()
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.horizontal)
+        .padding(.bottom)
     }
     
     @ViewBuilder private var smallHeader: some View {
@@ -103,12 +115,12 @@ struct ProfileView: View {
     }
     
     @ViewBuilder private var image: some View {
-        Image(.userProfile5)
+        DesignSystemAsset.userProfile5.swiftUIImage
             .resizable()
             .frame(width: 111, height: 111)
             .clipShape(.rect(cornerRadius: 20))
             .overlay {
-                Image(.frame4Aligned)
+                DesignSystemAsset.frame4Aligned.swiftUIImage
                     .resizable()
                     .frame(width: 140, height: 140)
                     .scaledToFit()

@@ -9,15 +9,20 @@ final class AuthenticationStore {
     private(set) var message: String?
 
     private let dependencies: AuthenticationDependencies
-    private var session: AuthenticationSession?
     private var retryOperation: AuthenticationRetryOperation?
+    private var sessionEventTask: Task<Void, Never>?
 
     init(dependencies: AuthenticationDependencies) {
         self.dependencies = dependencies
+        observeSessionEvents()
     }
 
     var canRetry: Bool {
         retryOperation != nil
+    }
+
+    var sessionController: any BagLogSessionControlling {
+        dependencies.sessionController
     }
 
     func restore() async {
@@ -34,31 +39,25 @@ final class AuthenticationStore {
         do {
             let identityToken = try await dependencies.identityProvider.identityToken()
             try Task.checkCancellation()
-            let newSession = try await dependencies.api.signIn(identityToken: identityToken)
-            session = newSession
-
-            do {
-                try await dependencies.sessionStorage.save(newSession)
-                state = .signedIn
-            } catch {
-                state = .signedIn
-                showFailure(.secureStorage, retry: .saveSession)
-            }
+            try await dependencies.sessionController.signIn(
+                identityToken: identityToken
+            )
+            state = .signedIn
         } catch {
-            handleSignInFailure(error)
+            await handleSignInFailure(error)
         }
     }
 
     func signOut() async {
-        guard state == .signedIn, let session else { return }
+        guard state == .signedIn else { return }
 
         state = .signingOut
         clearFailure()
 
         do {
-            let revocableSession = try await sessionForLogout(session)
-            try await dependencies.api.logout(accessToken: revocableSession.accessToken)
-            await finishLocalSignOut()
+            try await dependencies.sessionController.signOut()
+            dependencies.identityProvider.signOut()
+            state = .signedOut
         } catch {
             self.state = .signedIn
             handleFailure(error, retry: .signOut)
@@ -81,10 +80,6 @@ final class AuthenticationStore {
             await signOut()
         case .saveSession:
             await retrySavingSession()
-        case .finishLocalSignOut:
-            state = .signingOut
-            clearFailure()
-            await finishLocalSignOut()
         }
     }
 
@@ -95,90 +90,23 @@ final class AuthenticationStore {
 
     private func restoreSession() async {
         do {
-            guard let storedSession = try await dependencies.sessionStorage.load() else {
-                state = .signedOut
-                return
-            }
-            try Task.checkCancellation()
-
-            let now = dependencies.clock.now
-            guard storedSession.refreshExpiresAt > now else {
-                try await dependencies.sessionStorage.clear()
-                state = .signedOut
-                return
-            }
-
-            if storedSession.accessExpiresAt > now.addingTimeInterval(30) {
-                session = storedSession
-                state = .signedIn
-                return
-            }
-
-            let refreshedSession: AuthenticationSession
-            do {
-                refreshedSession = try await dependencies.api.refresh(
-                    refreshToken: storedSession.refreshToken
-                )
-            } catch let error as AuthenticationError where
-                error == .rejected || error == .invalidRequest {
-                try await dependencies.sessionStorage.clear()
-                session = nil
-                state = .signedOut
-                return
-            }
-
-            session = refreshedSession
-            do {
-                try await dependencies.sessionStorage.save(refreshedSession)
-                state = .signedIn
-            } catch {
+            let isSignedIn = try await dependencies.sessionController.restore()
+            state = isSignedIn ? .signedIn : .signedOut
+        } catch {
+            if await dependencies.sessionController.hasSession() {
                 state = .signedIn
                 handleFailure(error, retry: .saveSession)
+            } else {
+                state = .signedOut
+                handleFailure(error, retry: .restore)
             }
-        } catch {
-            session = nil
-            state = .signedOut
-            handleFailure(error, retry: .restore)
         }
-    }
-
-    private func finishLocalSignOut() async {
-        do {
-            try await dependencies.sessionStorage.clear()
-            dependencies.identityProvider.signOut()
-            session = nil
-            state = .signedOut
-            clearFailure()
-        } catch {
-            state = .signedIn
-            handleFailure(error, retry: .finishLocalSignOut)
-        }
-    }
-
-    private func sessionForLogout(
-        _ currentSession: AuthenticationSession
-    ) async throws -> AuthenticationSession {
-        guard currentSession.accessExpiresAt > dependencies.clock.now else {
-            let refreshedSession = try await dependencies.api.refresh(
-                refreshToken: currentSession.refreshToken
-            )
-            session = refreshedSession
-            try await dependencies.sessionStorage.save(refreshedSession)
-            return refreshedSession
-        }
-        return currentSession
     }
 
     private func retrySavingSession() async {
-        guard let session else {
-            state = .signedOut
-            clearFailure()
-            return
-        }
-
         clearFailure()
         do {
-            try await dependencies.sessionStorage.save(session)
+            try await dependencies.sessionController.retryPersistingSession()
             state = .signedIn
         } catch {
             state = .signedIn
@@ -186,13 +114,15 @@ final class AuthenticationStore {
         }
     }
 
-    private func handleSignInFailure(_ error: Error) {
-        session = nil
-        state = .signedOut
-
+    private func handleSignInFailure(_ error: Error) async {
         if isCancellation(error) {
+            state = .signedOut
             clearFailure()
+        } else if await dependencies.sessionController.hasSession() {
+            state = .signedIn
+            handleFailure(error, retry: .saveSession)
         } else {
+            state = .signedOut
             handleFailure(error, retry: .signIn)
         }
     }
@@ -225,5 +155,24 @@ final class AuthenticationStore {
     private func clearFailure() {
         message = nil
         retryOperation = nil
+    }
+
+    private func observeSessionEvents() {
+        let events = dependencies.sessionController.events
+        sessionEventTask = Task { [weak self] in
+            for await event in events {
+                guard !Task.isCancelled else { return }
+                switch event {
+                case .invalidated:
+                    self?.sessionWasInvalidated()
+                }
+            }
+        }
+    }
+
+    private func sessionWasInvalidated() {
+        dependencies.identityProvider.signOut()
+        state = .signedOut
+        clearFailure()
     }
 }

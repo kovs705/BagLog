@@ -8,7 +8,7 @@
 
 import Foundation
 
-public struct LoadoutItemSnapshot: Sendable, Equatable, Identifiable {
+public struct LoadoutItemSnapshot: Codable, Sendable, Equatable, Identifiable {
     public let id: UUID
     public let title: String
     public let category: String?

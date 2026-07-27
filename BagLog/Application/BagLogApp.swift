@@ -14,21 +14,25 @@ import SwiftUI
 @MainActor
 struct BagLogApp: App {
 
+    @Environment(\.scenePhase) private var scenePhase
     @State private var router = Router()
     @State private var authenticationStore: AuthenticationStore
+    @State private var loadoutSyncCoordinator: LoadoutSyncCoordinator
     private let modelContainer: ModelContainer
-    private let persistence: any BagLogPersisting
+    private let persistence: any BagLogSyncPersisting
     private let mediaStore: any MediaStoring
 
     init() {
-        _authenticationStore = State(initialValue: AuthenticationComposition.make())
+        let authenticationStore = AuthenticationComposition.make()
+        _authenticationStore = State(initialValue: authenticationStore)
         do {
             let isUITesting = ProcessInfo.processInfo.arguments.contains("--ui-testing")
             let modelContainer = try BagLogModelContainer.make(
                 isStoredInMemoryOnly: isUITesting
             )
             self.modelContainer = modelContainer
-            persistence = SwiftDataPersistence(modelContainer: modelContainer)
+            let persistence = SwiftDataPersistence(modelContainer: modelContainer)
+            self.persistence = persistence
             if isUITesting {
                 mediaStore = try FileMediaStore(
                     applicationSupportDirectory: FileManager.default.temporaryDirectory
@@ -37,6 +41,16 @@ struct BagLogApp: App {
             } else {
                 mediaStore = try FileMediaStore()
             }
+            let syncConfiguration = LoadoutSyncConfiguration()
+            let authenticationConfiguration = AuthenticationConfiguration()
+            _loadoutSyncCoordinator = State(
+                initialValue: LoadoutSyncComposition.make(
+                    configuration: syncConfiguration,
+                    apiBaseURL: authenticationConfiguration.apiBaseURL,
+                    sessionController: authenticationStore.sessionController,
+                    persistence: persistence
+                )
+            )
         } catch {
             fatalError("BagLog could not initialize its local data store: \(error)")
         }
@@ -47,8 +61,15 @@ struct BagLogApp: App {
             MainView()
                 .environment(router)
                 .environment(authenticationStore)
+                .environment(loadoutSyncCoordinator)
                 .environment(\.bagLogPersistence, persistence)
                 .environment(\.bagLogMediaStore, mediaStore)
+                .environment(\.loadoutSyncTrigger, loadoutSyncCoordinator.trigger)
+                .environment(\.loadoutSyncRetry, loadoutSyncCoordinator.retry)
+                .environment(
+                    \.loadoutSyncDataRevision,
+                    loadoutSyncCoordinator.dataRevision
+                )
                 .modelContainer(modelContainer)
                 .task {
                     await authenticationStore.restore()
@@ -56,6 +77,24 @@ struct BagLogApp: App {
                 .onOpenURL { url in
                     authenticationStore.handle(url)
                 }
+                .task(
+                    id: LoadoutSyncActivation(
+                        authenticationState: authenticationStore.state,
+                        scenePhase: scenePhase,
+                        triggerRevision: loadoutSyncCoordinator.triggerRevision
+                    )
+                ) {
+                    await loadoutSyncCoordinator.synchronize(
+                        isAuthenticated: authenticationStore.state == .signedIn,
+                        isForeground: scenePhase == .active
+                    )
+                }
         }
     }
+}
+
+private struct LoadoutSyncActivation: Equatable {
+    let authenticationState: AuthenticationState
+    let scenePhase: ScenePhase
+    let triggerRevision: Int
 }
