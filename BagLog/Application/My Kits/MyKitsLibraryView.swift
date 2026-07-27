@@ -2,6 +2,7 @@ import Persistence
 import SwiftUI
 
 struct MyKitsLibraryView: View {
+    @Environment(\.loadoutSyncTrigger) private var triggerSync
     @Bindable var store: MyKitsStore
     @Binding var scope: MyKitsScope
     let createKit: () -> Void
@@ -35,6 +36,7 @@ struct MyKitsLibraryView: View {
         }
         .scrollIndicators(.hidden)
         .refreshable {
+            triggerSync?()
             await store.load(using: persistence)
         }
         .toolbar(.hidden, for: .navigationBar)

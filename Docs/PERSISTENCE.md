@@ -1,17 +1,19 @@
-# Persistence V1
+# Persistence
 
 ## Status
 
-The persistence package is a working local data foundation. The app target
-constructs one model container at launch, injects `SwiftDataPersistence` and
-`FileMediaStore`, and uses their snapshots in Create Kit, My Kits, and kit
-detail. The local profile setup, editor, and published detail flow are wired;
-the complete BagLog V1 still requires the user-facing fork journey.
+The persistence package is the local source of truth for BagLog. The app target
+constructs one versioned model container at launch and injects
+`SwiftDataPersistence` and `FileMediaStore`. Create Kit, My Kits, kit detail,
+and the optional private sync engine communicate through immutable values.
 
-This distinction is intentional in the documentation. The package should stay
-small enough to support the V1 loop, while the app layer owns the user journey.
+Schema V2 adds durable, account-scoped private-loadout synchronization while
+preserving the local-first Release 1.0 behavior. Schema V3 enforces the
+one-attempt-per-pending-change queue invariant and indexes that lookup.
+`Persistence` remains independent of SwiftUI, URLSession, transport DTOs, and
+authentication.
 
-## V1 outcome
+## Local outcome
 
 A person can locally:
 
@@ -23,6 +25,10 @@ A person can locally:
 
 Forking copies item and link values into fresh records and retains a
 `ForkOrigin` snapshot. It does not copy local media files.
+
+With the DEBUG-only sync flag enabled and a remote account scope active, saving
+an eligible private draft also records a logical pending change in the same
+explicit SwiftData save. Local editing never waits for a network response.
 
 ## Current package layout
 
@@ -43,7 +49,15 @@ BagLogPackage/Sources/Persistence/
 │   ├── SwiftDataPersistence.swift
 │   ├── SwiftDataPersistence+Profiles.swift
 │   ├── SwiftDataPersistence+Loadouts.swift
+│   ├── SwiftDataPersistence+Sync.swift
 │   └── SwiftDataPersistence+Support.swift
+├── Sync/
+│   ├── LoadoutSyncScope.swift
+│   ├── LoadoutSyncMetadata.swift
+│   ├── PendingLoadoutChange.swift
+│   ├── LoadoutMutationAttempt.swift
+│   ├── LoadoutConflict.swift
+│   └── LoadoutSyncValues.swift
 └── Types/
     └── PersistenceDTOs.swift
 ```
@@ -63,6 +77,11 @@ erDiagram
     LOADOUT ||--o{ LOADOUT_ASSET : contains
     LOADOUT ||--o| FORK_ORIGIN : attributes
     LOADOUT }o--o{ TAG : has
+    LOADOUT ||--o| LOADOUT_SYNC_METADATA : tracks
+    LOADOUT_SYNC_SCOPE ||--o{ LOADOUT_SYNC_METADATA : partitions
+    LOADOUT_SYNC_SCOPE ||--o{ PENDING_LOADOUT_CHANGE : owns
+    PENDING_LOADOUT_CHANGE ||--o{ LOADOUT_MUTATION_ATTEMPT : materializes
+    LOADOUT_SYNC_SCOPE ||--o{ LOADOUT_CONFLICT : preserves
 ```
 
 | Record | Responsibility | Delete behaviour |
@@ -75,6 +94,11 @@ erDiagram
 | `Tag` | Reusable local tag | Nullified from a deleted loadout. |
 | `ForkOrigin` | Immutable source attribution | Deleted with its fork. |
 | `SavedLoadout` | Future local saved-reference record | No V1 store API yet. |
+| `LoadoutSyncScope` | Remote/local profile binding and pull cursors | Retained across sign-out. |
+| `LoadoutSyncMetadata` | Per-loadout scope, generation, acknowledged revision, and detach state | Preserved with the local aggregate. |
+| `PendingLoadoutChange` | Coalescible logical local intention | Removed only after acknowledgement or explicit resolution. |
+| `LoadoutMutationAttempt` | Immutable wire attempt and retry state | Retains body, idempotency key, operation, and expected revision. |
+| `LoadoutConflict` | Durable local/remote or local/tombstone pair | Removed only by an explicit conflict resolution. |
 
 All persisted records use application-owned `UUID`s. `PersistentIdentifier` is
 never exposed outside SwiftData.
@@ -107,6 +131,73 @@ local-only, they may be renamed to `*Draft` in one deliberate API cleanup.
 `*Snapshot` values are immutable read DTOs for a caller. A caller must not
 retain or mutate an `@Model` instance it received from the persistence layer.
 
+`BagLogSyncPersisting` extends this boundary with small operations for scope
+activation, pending-work selection, immutable attempt materialization,
+attempt-start persistence, acknowledgement/retry/failure handling, atomic pull
+page application, pull reset, and conflict resolution. The store never
+performs a network request.
+
+## Schema migrations
+
+`BagLogSchemaV1` is unchanged. `BagLogSchemaV2` adds the five sync records and a
+custom V1 → V2 migration stage.
+
+`BagLogSchemaV3` keeps the V2 data shape and adds a uniqueness constraint and
+index for `LoadoutMutationAttempt.pendingChangeID`. V1 and V2 each own frozen
+model definitions so future model edits cannot silently rewrite a historical
+schema. V2 → V3 uses a lightweight migration.
+
+The old `Loadout.remoteRevision` placeholder remains in the V1 model for store
+compatibility. During migration, a positive decimal value becomes the typed
+`Int64` `LoadoutSyncMetadata.acknowledgedRevision`; invalid or non-positive
+legacy values are discarded, and the string field is cleared. The migration
+does not delete or rebuild an incompatible store.
+
+Migration tests create populated V1 and V2 file stores and reopen them through
+the current schema, verifying preservation of profiles, aggregate
+relationships, tags, assets, fork attribution, converted revisions, and
+durable sync queue state.
+
+## Private draft synchronization
+
+Only `private` + `draft` aggregates are eligible. The synchronized projection
+contains the stable loadout UUID, title, summary, category, ordered items,
+ordered HTTPS links, and normalized tags. Local ownership, status, visibility,
+assets, thumbnails, fork attribution, and local timestamps are not sent.
+
+Durability rules:
+
+- the aggregate and logical pending change save together;
+- pending work may coalesce only while no immutable attempt represents it;
+- an attempt is persisted before the first request and marked started before
+  network I/O;
+- cancellation, timeout, restart, and unknown create results replay the exact
+  operation, encoded bytes, idempotency key, and `If-Match` revision;
+- a newer edit creates a later generation without mutating an existing
+  attempt;
+- an acknowledgement updates the typed revision and removes only the work it
+  proves complete;
+- a bootstrap or incremental page and its cursor progress save atomically; and
+- account scope IDs partition metadata, pending work, attempts, and conflicts.
+
+Publishing or archiving an acknowledged private draft keeps the full local
+aggregate but queues a revisioned eligibility-detach delete. Its returning
+remote tombstone does not remove the published or archived copy. A draft whose
+create result is unknown is replayed before that delete. Re-entering the synced
+private-draft state with the same server UUID is rejected for this milestone.
+
+An acknowledged remote tombstone removes an unchanged eligible local draft. If
+there is unsent work, it becomes a durable tombstone conflict instead. Choosing
+to duplicate local creates a private draft with fresh loadout, item, and link
+UUIDs so it cannot collide with the server's retained soft-deleted identity.
+A tombstone matching a pending local delete completes that intention
+idempotently. A revision-stale delete against a newer server aggregate restores
+its recovery snapshot as a visible conflict, where the person can rebase the
+delete or keep the server version.
+
+Remote upserts replace only the synchronized projection. Local media,
+thumbnails, fork metadata, ownership, and other richer local fields survive.
+
 ## Media
 
 `FileMediaStore` owns files below `Application Support/BagLog/Media`. It names
@@ -121,16 +212,16 @@ successfully deleted asset metadata. A later maintenance task can reconcile
 orphaned files. Do not claim automatic media cleanup until that coordination is
 implemented and tested.
 
-## Deferred from V1
+## Deferred
 
 The following fields and records are present for a future transition, but do
 not represent finished features:
 
 | Deferred concern | Existing foundation | Still required |
 | --- | --- | --- |
-| Remote sync | `remoteID`, `remoteRevision`, `syncState` | API client, conflict policy, acknowledgement flow, retry queue. |
+| Public, archived, or published sync | Private-draft projection and detach behavior | Later backend aggregate support and product policy. |
 | Saved loadouts | `SavedLoadout` model | Save/unsave/query API and UI. |
-| Remote media | `remoteURLString` | Upload/download client and lifecycle handling. |
+| Remote media | Local assets and `remoteURLString` placeholder | Upload/download client and lifecycle handling. |
 | Public catalogue | `visibility` and `status` | Authentication, publication service, discovery, moderation. |
 | Account reset | Cascade relationship | Explicit destructive user flow and file cleanup. |
 
@@ -139,14 +230,22 @@ implemented end to end.
 
 ## Verification
 
-The package currently has Swift Testing coverage for:
+The package has Swift Testing coverage for:
 
 - local-profile lookup;
 - saving and explicitly updating an ordered loadout graph, item categories,
   links, galleries, and normalised tags;
 - rejecting non-HTTPS links;
 - forking without sharing item/link identifiers or private media; and
-- importing, downsampling, finding, and removing managed media.
+- importing, downsampling, finding, and removing managed media;
+- V1 → current-schema migration from a populated file store;
+- V2 → V3 migration with durable sync queue state;
+- atomic local save/enqueue and atomic pull-page rollback;
+- immutable attempts, newer local generations, and exact-retry state;
+- acknowledged and conflicting tombstones;
+- conflict resolution, including fresh identifiers for duplicated local work;
+  and
+- account-scope isolation.
 
 Run from `BagLogPackage/`:
 
@@ -156,8 +255,7 @@ swift build --sdk "$(xcrun --sdk iphonesimulator --show-sdk-path)" \
   --triple arm64-apple-ios18.0-simulator
 ```
 
-## Next implementation step
-
-Before adding sync, subscriptions, or discovery, finish the local fork journey
-on top of the existing editor and add the remaining create → publish → fork UI
-coverage. Everything else can wait until that loop is usable.
+The app-level simulator suite additionally covers API serialization and
+headers, strict response validation, one forced refresh after `401`, refresh
+deduplication, engine restart/retry, stale revision preservation, cursor-expiry
+bootstrap recovery, and account switching.

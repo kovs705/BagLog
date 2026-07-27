@@ -7,6 +7,7 @@
 //
 
 import DesignSystem
+import Persistence
 import SwiftUI
 
 struct CreateKitEditorView: View {
@@ -16,6 +17,8 @@ struct CreateKitEditorView: View {
     let reduceMotion: Bool
     let accessibilityTitle: String
     let topics: [CreateKitTopic]
+
+    @State private var presentedConflict: LoadoutConflictSnapshot?
 
     var body: some View {
         ScrollViewReader { scrollProxy in
@@ -35,6 +38,10 @@ struct CreateKitEditorView: View {
                             tags: draft.tagNames,
                             store: store
                         )
+
+                        if store.conflict != nil {
+                            CreateKitConflictBanner(review: reviewConflict)
+                        }
 
                         if let message = store.message {
                             CreateKitInlineMessageView(
@@ -75,12 +82,22 @@ struct CreateKitEditorView: View {
         .sensoryFeedback(.alignment, trigger: store.reorderCount)
         .disabled(store.isPublishing)
         .supportNeutralGradientBackground()
+        .sheet(item: $presentedConflict) { conflict in
+            CreateKitConflictSheet(
+                conflict: conflict,
+                resolve: store.resolveConflict
+            )
+        }
     }
 
     private func retrySave() {
         Task {
             await store.retrySave()
         }
+    }
+
+    private func reviewConflict() {
+        presentedConflict = store.conflict
     }
 
     private func scrollToInsertedItem(

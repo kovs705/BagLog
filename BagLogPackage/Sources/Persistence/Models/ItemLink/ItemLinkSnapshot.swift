@@ -8,7 +8,7 @@
 
 import Foundation
 
-public struct ItemLinkSnapshot: Sendable, Equatable, Identifiable {
+public struct ItemLinkSnapshot: Codable, Sendable, Equatable, Identifiable {
     public let id: UUID
     public let urlString: String
     public let label: String?

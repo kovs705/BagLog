@@ -11,6 +11,7 @@ import SwiftUI
 struct CreateKitFlowView: View {
     @Environment(Router.self) private var router
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.loadoutSyncDataRevision) private var syncDataRevision
 
     let presentation: CreateKitPresentation
     let topics: [CreateKitTopic]
@@ -70,6 +71,9 @@ struct CreateKitFlowView: View {
         }
         .task {
             await store.start()
+        }
+        .task(id: syncDataRevision) {
+            await store.refreshConflict()
         }
         .onChange(of: store.phase, focusFirstField)
         .interactiveDismissDisabled(store.requiresDismissProtection)

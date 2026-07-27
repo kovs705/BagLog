@@ -8,7 +8,7 @@
 
 import Foundation
 
-public struct LoadoutSnapshot: Sendable, Equatable, Identifiable {
+public struct LoadoutSnapshot: Codable, Sendable, Equatable, Identifiable {
     public let id: UUID
     public let ownerID: UUID
     public let remoteID: String?
@@ -23,7 +23,7 @@ public struct LoadoutSnapshot: Sendable, Equatable, Identifiable {
     public let publishedAt: Date?
     public let archivedAt: Date?
     public let lastSyncedAt: Date?
-    public let remoteRevision: String?
+    public let remoteRevision: Int64?
     public let tagNames: [String]
     public let items: [LoadoutItemSnapshot]
     public let assets: [LoadoutAssetSnapshot]
@@ -44,7 +44,7 @@ public struct LoadoutSnapshot: Sendable, Equatable, Identifiable {
         publishedAt: Date?,
         archivedAt: Date?,
         lastSyncedAt: Date?,
-        remoteRevision: String?,
+        remoteRevision: Int64?,
         tagNames: [String],
         items: [LoadoutItemSnapshot],
         assets: [LoadoutAssetSnapshot],

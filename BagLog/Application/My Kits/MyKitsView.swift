@@ -12,6 +12,7 @@ import SwiftUI
 struct MyKitsView: View {
     @Environment(Router.self) private var router
     @Environment(\.bagLogPersistence) private var persistence
+    @Environment(\.loadoutSyncDataRevision) private var syncDataRevision
 
     @State private var store = MyKitsStore()
     @State private var scope = MyKitsScope.all
@@ -34,7 +35,12 @@ struct MyKitsView: View {
                     KitDetailView(loadoutID: loadoutID)
                 }
             }
-            .task(id: router.kitsRevision) {
+            .task(
+                id: MyKitsLoadRevision(
+                    routerRevision: router.kitsRevision,
+                    syncRevision: syncDataRevision
+                )
+            ) {
                 await store.load(using: persistence)
             }
         }
@@ -48,6 +54,11 @@ struct MyKitsView: View {
         router.presentEditor(loadoutID: loadoutID)
     }
 
+}
+
+private struct MyKitsLoadRevision: Equatable {
+    let routerRevision: Int
+    let syncRevision: Int
 }
 
 #if DEBUG

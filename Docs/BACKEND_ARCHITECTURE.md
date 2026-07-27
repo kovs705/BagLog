@@ -2,7 +2,9 @@
 
 ## Status and release boundary
 
-Status: proposed for Release 1.1 and later.
+Status: broad post-1.0 architecture proposal. Authentication, profile, and
+private-loadout sync are implemented by backend API `0.4.0`; later catalogue,
+media, moderation, and scale-out sections remain proposals.
 
 Release 1.0 remains local-first and does not depend on this backend. The first
 server-backed release should add accounts and reliable synchronization while
@@ -17,6 +19,11 @@ This design assumes:
 - SwiftData remains the iOS source of truth while the app is running;
 - application-owned UUIDs remain stable across local and remote records; and
 - media bytes do not live in PostgreSQL.
+
+For implemented client behavior, `Backend/OpenAPI/baglog-v1.yaml` is the
+canonical contract snapshot. It must match the backend repository's
+`api/openapi.yaml`. Where older prose in this document differs from API `0.4.0`
+or backend decision 0007, the OpenAPI contract and decision record win.
 
 ## Decision summary
 
@@ -167,12 +174,13 @@ Important choices:
 | `UserProfile.id` | `profiles.id`; accepted from the first device, returned by the server on later devices |
 | `Loadout.id` | `loadouts.id`; the same application-owned UUID |
 | `remoteID` | Transitional only; set to the same UUID string, then retire in a later local schema migration |
-| `remoteRevision` | Decimal string form of the server `revision` until the local type can become an integer |
+| legacy `remoteRevision` | Migrated once from a positive decimal string into `LoadoutSyncMetadata.acknowledgedRevision` (`Int64`), then cleared |
 | `syncState` | Local-only UI/queue state; never accepted as server truth |
 | `localFileName` | Remains device-local and is never uploaded as a storage key |
 | `remoteURLString` | Derived from an authorized media response; not stored as a permanent server URL |
 | `thumbnailData` | Kept locally for offline rendering; server thumbnails live in media storage |
 | `sourceRemoteID` | Transitional alias of `sourceLoadoutID`; the backend uses the stable UUID |
+| `LoadoutSyncScope.remoteProfileID` | Durable account partition for cursors, mutations, attempts, and conflicts |
 
 ## API contract
 
@@ -190,14 +198,16 @@ Rules common to all endpoints:
   revision when the client is stale; and
 - cap body sizes and list limits at the edge and again in the API.
 
-The private account/sync vertical slice needs only:
+API `0.4.0` implements the private account/sync vertical slice used by iOS:
 
-1. Sign in with Apple token exchange and refresh/logout.
-2. Read/update the authenticated profile and request account deletion.
-3. Create, fetch, update, publish, and delete an owned loadout aggregate.
-4. Fork a published public loadout in one server transaction.
-5. Pull the authenticated account's sync changes by cursor.
-6. Prepare, upload, and complete an image upload.
+1. Google and Apple sign-in endpoints plus refresh/logout.
+2. Read/create/update the authenticated profile and request account deletion.
+3. Create, fetch, replace, and delete a private draft loadout projection.
+4. Bootstrap the account's current private loadouts.
+5. Pull later private-loadout changes and tombstones by cursor.
+
+Publication, server-side forking, media transfer, and public discovery are not
+part of the iOS Milestone 2 projection.
 
 Before the shared catalogue ships, add the second safety slice:
 
@@ -213,12 +223,15 @@ absent from the first contract.
 
 ## Authentication and authorization
 
-Use Sign in with Apple as the initial identity provider:
+The current iOS development integration uses Google sign-in and exchanges the
+provider ID token for a BagLog access/refresh pair. The API also exposes Sign
+in with Apple endpoints for the production-compliance path.
 
-1. The iOS app obtains an identity token, authorization code, and nonce through
-   Authentication Services.
-2. The API validates issuer, audience, expiry, signature, and nonce against
-   Apple's keys, then binds the stable Apple subject to an account.
+For either provider:
+
+1. The iOS app obtains provider credentials through the official platform SDK.
+2. The API validates issuer, audience, expiry, signature, and provider-specific
+   anti-replay values, then binds the stable provider subject to an account.
 3. The API returns a short-lived access token and a rotating opaque refresh
    token. Only a cryptographic hash of the refresh token is stored.
 4. Refresh-token reuse revokes that session family.
@@ -230,9 +243,9 @@ approved`, `deleted_at IS NULL`, and the requester's block list. PostgreSQL is
 reachable only from the private application network; it is never exposed
 through the router.
 
-Store no Apple identity token, authorization code, raw refresh token, or media
-URL containing credentials. Email is not required for the core product and
-should not be stored unless a later feature has a clear need.
+Store no provider identity token, authorization code, raw refresh token, or
+media URL containing credentials. Email is not required for the core product
+and should not be stored unless a later feature has a clear need.
 
 Because the server creates an account, the app must expose account deletion.
 The deletion request immediately revokes sessions and hides public content,
@@ -286,12 +299,13 @@ concurrency is preferable to a premature field-level CRDT.
 
 ### Pull
 
-`GET /v1/sync/changes?after=<cursor>` returns ordered upsert references and
-tombstones visible to the account. Omitting `after` requests a fresh baseline:
-the server captures a high-water cursor and pages through the account's current
-profile and loadouts. The app persists the new cursor only after all returned
-changes are durably applied to SwiftData. Cursors are opaque to the client even
-if the first implementation uses a PostgreSQL identity value.
+`GET /v1/sync/bootstrap` pages the account's current private loadouts against a
+captured high-water cursor. `GET /v1/sync/changes?after=<cursor>` then returns
+ordered upserts and tombstones visible to the account. The app persists cursor
+or bootstrap progress only in the SwiftData transaction that applies the
+complete validated page. API `0.4.0` represents cursors as positive `Int64`
+values; clients still treat their ordering and retention policy as
+server-owned.
 
 Change rows may be pruned after a documented maximum offline window. A cursor
 older than that window returns `410 sync_cursor_expired`; the app requests a
@@ -309,12 +323,14 @@ Add remote behavior without moving networking into `Persistence`:
 BagLog/Application
     └── composes and starts synchronization
 Services
-    ├── BagLogAPIClient actor          HTTP and transport DTOs
-    └── BagLogSyncEngine actor         retry, cursor, conflict orchestration
+    ├── BagLogSessionController actor  access-token and refresh coordination
+    ├── BagLogLoadoutAPI actor         HTTP and transport DTOs
+    └── LoadoutSyncEngine actor        retry, cursor, conflict orchestration
 BagLogPackage/Persistence
     ├── existing local aggregates
-    ├── pending mutation records
-    └── sync cursor and tombstone application APIs
+    ├── scoped logical changes and immutable attempts
+    ├── durable conflicts
+    └── atomic cursor, page, acknowledgement, and tombstone APIs
 ```
 
 Transport DTOs map to persistence commands/snapshots in `Services`. SwiftUI
@@ -455,7 +471,7 @@ The backend implementation should have:
 5. Implement server-side fork and the private sync change feed.
 6. Implement image upload through the filesystem storage port.
 7. Add the `Services` API client and durable sync engine to iOS behind a
-   development feature flag.
+   development feature flag. **Implemented for API `0.4.0`.**
 8. Deploy to the Pi, rehearse restore, then invite private testers.
 9. Implement moderation states, report handling, profile blocking, and the
    operational review path.

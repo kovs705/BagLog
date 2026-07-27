@@ -99,7 +99,8 @@ let project = Project(
                 "Services/**"
             ],
             dependencies: [
-                .package(product: "GoogleSignIn")
+                .package(product: "GoogleSignIn"),
+                .package(product: "Persistence")
             ],
             settings: .settings(
                 base: [
@@ -136,6 +137,7 @@ let project = Project(
                 "NSLocationWhenInUseUsageDescription": "For proper working of the map.",
                 "NSPhotoLibraryAddUsageDescription": "To add new stickers on the device",
                 "BAGLOG_API_BASE_URL": "$(BAGLOG_API_BASE_URL)",
+                "BAGLOG_PRIVATE_SYNC_ENABLED": "$(BAGLOG_PRIVATE_SYNC_ENABLED)",
                 "GIDClientID": "$(BAGLOG_GOOGLE_IOS_CLIENT_ID)",
                 "GIDServerClientID": "$(BAGLOG_GOOGLE_SERVER_CLIENT_ID)",
                 "CFBundleURLTypes": [

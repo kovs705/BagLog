@@ -21,34 +21,40 @@ struct CreateKitTopicPickerSheet: View {
 
     var body: some View {
         NavigationStack {
-            Group {
-                if displayedTopics.isEmpty {
-                    ContentUnavailableView.search
-                } else {
-                    List(displayedTopics) { topic in
-                        CreateKitTopicRow(
-                            topic: topic,
-                            isSelected: topic.category == selection,
-                            select: { select(topic) }
-                        )
-                        .listRowInsets(
-                            EdgeInsets(
-                                top: 5,
-                                leading: CreateKitDesign.horizontalPadding,
-                                bottom: 5,
-                                trailing: CreateKitDesign.horizontalPadding
+            VStack(spacing: 0) {
+                CreateKitTopicSearchField(text: $searchText)
+                    .padding(.horizontal, CreateKitDesign.horizontalPadding)
+                    .padding(.bottom, 8)
+                    .zIndex(1)
+
+                Group {
+                    if displayedTopics.isEmpty {
+                        ContentUnavailableView.search(text: searchText)
+                    } else {
+                        List(displayedTopics) { topic in
+                            CreateKitTopicRow(
+                                topic: topic,
+                                isSelected: topic.category == selection,
+                                select: { select(topic) }
                             )
-                        )
-                        .listRowSeparator(.hidden)
-                        .listRowBackground(Color.clear)
+                            .listRowInsets(
+                                EdgeInsets(
+                                    top: 5,
+                                    leading: CreateKitDesign.horizontalPadding,
+                                    bottom: 5,
+                                    trailing: CreateKitDesign.horizontalPadding
+                                )
+                            )
+                            .listRowSeparator(.hidden)
+                            .listRowBackground(Color.clear)
+                        }
+                        .listStyle(.plain)
+                        .scrollContentBackground(.hidden)
                     }
-                    .listStyle(.plain)
-                    .scrollContentBackground(.hidden)
                 }
             }
             .navigationTitle("Choose a topic")
             .navigationBarTitleDisplayMode(.inline)
-            .searchable(text: $searchText, prompt: "Search topics")
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
                     Button("Close", systemImage: "xmark", action: dismiss.callAsFunction)

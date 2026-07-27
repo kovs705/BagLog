@@ -8,7 +8,7 @@
 
 extension CreateKitStore {
     var canPublish: Bool {
-        draft?.canPublish == true && !isPublishing
+        draft?.canPublish == true && conflict == nil && !isPublishing
     }
 
     var saveStateLabel: String {
@@ -21,6 +21,10 @@ extension CreateKitStore {
     }
 
     func requestPublish() {
+        guard conflict == nil else {
+            message = "Resolve the synced versions before publishing this draft."
+            return
+        }
         guard let draft else { return }
         guard draft.canPublish else {
             message = draft.validationMessage ?? "Add at least one item before publishing."

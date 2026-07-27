@@ -8,6 +8,7 @@ actor TestAuthenticationAPI: AuthenticationAPIProviding {
     private let refreshError: Error?
     private let logoutError: Error?
     private let signInDelay: Duration?
+    private let refreshDelay: Duration?
     private var receivedIdentityTokens: [String] = []
     private var receivedRefreshTokens: [String] = []
     private var receivedLogoutTokens: [String] = []
@@ -18,7 +19,8 @@ actor TestAuthenticationAPI: AuthenticationAPIProviding {
         signInError: Error? = nil,
         refreshError: Error? = nil,
         logoutError: Error? = nil,
-        signInDelay: Duration? = nil
+        signInDelay: Duration? = nil,
+        refreshDelay: Duration? = nil
     ) {
         self.signInSession = signInSession
         self.refreshSession = refreshSession ?? signInSession
@@ -26,6 +28,7 @@ actor TestAuthenticationAPI: AuthenticationAPIProviding {
         self.refreshError = refreshError
         self.logoutError = logoutError
         self.signInDelay = signInDelay
+        self.refreshDelay = refreshDelay
     }
 
     func signIn(identityToken: String) async throws -> AuthenticationSession {
@@ -39,8 +42,11 @@ actor TestAuthenticationAPI: AuthenticationAPIProviding {
         return signInSession
     }
 
-    func refresh(refreshToken: String) throws -> AuthenticationSession {
+    func refresh(refreshToken: String) async throws -> AuthenticationSession {
         receivedRefreshTokens.append(refreshToken)
+        if let refreshDelay {
+            try await Task.sleep(for: refreshDelay)
+        }
         if let refreshError {
             throw refreshError
         }

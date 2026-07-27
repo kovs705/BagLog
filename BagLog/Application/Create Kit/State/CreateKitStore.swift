@@ -15,6 +15,7 @@ import Persistence
 final class CreateKitStore {
     private(set) var phase = CreateKitPhase.loading
     private(set) var saveState = CreateKitSaveState.idle
+    private(set) var conflict: LoadoutConflictSnapshot?
     var draft: CreateKitDraft?
     private(set) var lastInsertedItemID: UUID?
     private(set) var itemInsertionCount = 0
@@ -93,6 +94,7 @@ final class CreateKitStore {
             let profile = try await dependencies.persistence.saveProfile(
                 SaveUserProfileCommand(handle: handle, displayName: displayName)
             )
+            dependencies.syncDidChange()
             message = nil
             try await openEditor(for: profile)
         } catch {
@@ -126,6 +128,11 @@ final class CreateKitStore {
     }
 
     func publish() async throws -> UUID {
+        guard conflict == nil else {
+            throw CreateKitEditorError.invalidDraft(
+                "Resolve the synced versions before publishing this draft."
+            )
+        }
         guard let validationDraft = draft, validationDraft.canPublish else {
             throw CreateKitEditorError.invalidDraft(
                 draft?.validationMessage ?? "Add at least one item before publishing."
@@ -170,6 +177,9 @@ final class CreateKitStore {
             }
             draft = CreateKitDraft(snapshot: snapshot)
             committedFileNames = Set(snapshot.assets.compactMap(\.localFileName))
+            conflict = try await dependencies.syncPersistence?.conflict(
+                loadoutID: snapshot.id
+            )
         }
 
         saveState = draft?.id == nil ? .idle : .saved
@@ -245,6 +255,7 @@ final class CreateKitStore {
         revision savingRevision: Int
     ) async {
         draft?.id = snapshot.id
+        dependencies.syncDidChange()
         let newCommittedFiles = Set(snapshot.assets.compactMap(\.localFileName))
         let removedFiles = committedFileNames.subtracting(newCommittedFiles)
         committedFileNames = newCommittedFiles
@@ -280,6 +291,46 @@ final class CreateKitStore {
     private func showFatalError(_ text: String) {
         phase = .failed
         message = text
+    }
+
+    func refreshConflict() async {
+        guard let loadoutID = draft?.id,
+              let syncPersistence = dependencies.syncPersistence else {
+            return
+        }
+        do {
+            conflict = try await syncPersistence.conflict(loadoutID: loadoutID)
+        } catch {
+            // A background presentation refresh must not interrupt local editing.
+        }
+    }
+
+    func resolveConflict(_ resolution: LoadoutConflictResolution) async {
+        guard let loadoutID = draft?.id,
+              let syncPersistence = dependencies.syncPersistence else {
+            return
+        }
+        do {
+            let resolved = try await syncPersistence.resolveConflict(
+                loadoutID: loadoutID,
+                resolution: resolution,
+                at: .now
+            )
+            conflict = nil
+            dependencies.syncDidChange()
+            if let resolved {
+                draft = CreateKitDraft(snapshot: resolved)
+                committedFileNames = Set(resolved.assets.compactMap(\.localFileName))
+                saveState = .saved
+                message = nil
+            } else {
+                draft = nil
+                phase = .failed
+                message = "This draft was deleted."
+            }
+        } catch {
+            message = "BagLog couldn’t apply that choice. Please try again."
+        }
     }
 }
 

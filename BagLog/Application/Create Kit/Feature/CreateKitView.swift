@@ -11,6 +11,7 @@ import SwiftUI
 struct CreateKitView: View {
     @Environment(\.bagLogPersistence) private var persistence
     @Environment(\.bagLogMediaStore) private var mediaStore
+    @Environment(\.loadoutSyncTrigger) private var loadoutSyncTrigger
 
     let presentation: CreateKitPresentation
     let topics: [CreateKitTopic]
@@ -31,7 +32,8 @@ struct CreateKitView: View {
                     topics: topics,
                     dependencies: CreateKitDependencies(
                         persistence: persistence,
-                        mediaStore: mediaStore
+                        mediaStore: mediaStore,
+                        syncDidChange: loadoutSyncTrigger ?? {}
                     )
                 )
             } else {

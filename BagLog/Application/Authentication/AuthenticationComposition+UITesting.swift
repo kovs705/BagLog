@@ -5,12 +5,15 @@ extension AuthenticationComposition {
     static func makeUITestStore(arguments: [String]) -> AuthenticationStore {
         let scenario = AuthenticationUITestScenario(arguments: arguments)
         let storedSession: AuthenticationSession? = scenario == .signedIn ? .uiTestSession : nil
+        let sessionController = BagLogSessionController(
+            api: AuthenticationUITestAPI(scenario: scenario),
+            storage: AuthenticationUITestSessionStorage(session: storedSession),
+            clock: SystemAuthenticationClock()
+        )
         return AuthenticationStore(
             dependencies: AuthenticationDependencies(
                 identityProvider: AuthenticationUITestIdentityProvider(),
-                api: AuthenticationUITestAPI(scenario: scenario),
-                sessionStorage: AuthenticationUITestSessionStorage(session: storedSession),
-                clock: SystemAuthenticationClock()
+                sessionController: sessionController
             )
         )
     }

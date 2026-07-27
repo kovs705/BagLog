@@ -3,21 +3,15 @@ import Foundation
 public actor AuthenticationAPI: AuthenticationAPIProviding {
     public static let maximumResponseSize = 64 * 1_024
 
-    private let baseURL: URL?
-    private let session: URLSession
-    private let redirectDelegate: AuthenticationRedirectDelegate
+    private let client: SecureHTTPClient
 
     public init(
         baseURL: URL?,
         configuration: URLSessionConfiguration = .ephemeral
     ) {
-        self.baseURL = Self.validatedBaseURL(baseURL)
-        let redirectDelegate = AuthenticationRedirectDelegate()
-        self.redirectDelegate = redirectDelegate
-        session = URLSession(
-            configuration: configuration,
-            delegate: redirectDelegate,
-            delegateQueue: nil
+        client = SecureHTTPClient(
+            baseURL: baseURL,
+            configuration: configuration
         )
     }
 
@@ -27,8 +21,8 @@ public actor AuthenticationAPI: AuthenticationAPIProviding {
         }
 
         let body = try encodedBody(["identity_token": identityToken])
-        let request = try makeRequest(
-            path: "v1/auth/google/sign-in",
+        let request = try await makeRequest(
+            pathComponents: ["v1", "auth", "google", "sign-in"],
             body: body
         )
         return try await tokenSession(for: request)
@@ -40,7 +34,10 @@ public actor AuthenticationAPI: AuthenticationAPIProviding {
         }
 
         let body = try encodedBody(["refresh_token": refreshToken])
-        let request = try makeRequest(path: "v1/auth/refresh", body: body)
+        let request = try await makeRequest(
+            pathComponents: ["v1", "auth", "refresh"],
+            body: body
+        )
         return try await tokenSession(for: request)
     }
 
@@ -49,18 +46,22 @@ public actor AuthenticationAPI: AuthenticationAPIProviding {
             throw AuthenticationError.rejected
         }
 
-        var request = try makeRequest(path: "v1/auth/logout", body: nil)
+        var request = try await makeRequest(
+            pathComponents: ["v1", "auth", "logout"],
+            body: nil
+        )
         request.setValue("Bearer \(accessToken)", forHTTPHeaderField: "Authorization")
-        let (_, response) = try await response(for: request)
-        guard response.statusCode == 204 else {
-            throw mappedError(for: response.statusCode)
+        let response = try await response(for: request)
+        guard response.response.statusCode == 204 else {
+            throw mappedError(for: response.response.statusCode)
         }
     }
 
     private func tokenSession(for request: URLRequest) async throws -> AuthenticationSession {
-        let (data, response) = try await response(for: request)
-        guard response.statusCode == 200 || response.statusCode == 201 else {
-            throw mappedError(for: response.statusCode)
+        let response = try await response(for: request)
+        guard response.response.statusCode == 200
+                || response.response.statusCode == 201 else {
+            throw mappedError(for: response.response.statusCode)
         }
 
         let decoder = JSONDecoder()
@@ -70,7 +71,10 @@ public actor AuthenticationAPI: AuthenticationAPIProviding {
 
         let authenticationSession: AuthenticationSession
         do {
-            authenticationSession = try decoder.decode(AuthenticationSession.self, from: data)
+            authenticationSession = try decoder.decode(
+                AuthenticationSession.self,
+                from: response.data
+            )
         } catch {
             throw AuthenticationError.unexpectedResponse
         }
@@ -84,44 +88,39 @@ public actor AuthenticationAPI: AuthenticationAPIProviding {
         return authenticationSession
     }
 
-    private func response(for request: URLRequest) async throws -> (Data, HTTPURLResponse) {
-        try Task.checkCancellation()
-
-        let data: Data
-        let response: URLResponse
+    private func response(
+        for request: URLRequest
+    ) async throws -> SecureHTTPResponse {
         do {
-            (data, response) = try await session.data(for: request)
-        } catch is CancellationError {
-            throw AuthenticationError.cancelled
-        } catch let error as URLError {
-            throw Self.mappedTransportError(error)
+            return try await client.response(
+                for: request,
+                maximumResponseSize: Self.maximumResponseSize
+            )
+        } catch let error as SecureHTTPClientError {
+            throw mappedClientError(error)
         } catch {
             throw AuthenticationError.serviceUnavailable
         }
-
-        guard data.count <= Self.maximumResponseSize else {
-            throw AuthenticationError.responseTooLarge
-        }
-        guard let response = response as? HTTPURLResponse else {
-            throw AuthenticationError.unexpectedResponse
-        }
-        return (data, response)
     }
 
-    private func makeRequest(path: String, body: Data?) throws -> URLRequest {
-        guard let baseURL else {
+    private func makeRequest(
+        pathComponents: [String],
+        body: Data?
+    ) async throws -> URLRequest {
+        var headers = ["Accept": "application/json"]
+        if body != nil {
+            headers["Content-Type"] = "application/json"
+        }
+        do {
+            return try await client.makeRequest(
+                pathComponents: pathComponents,
+                method: "POST",
+                headers: headers,
+                body: body
+            )
+        } catch {
             throw AuthenticationError.configuration
         }
-
-        var request = URLRequest(url: baseURL.appending(path: path))
-        request.httpMethod = "POST"
-        request.timeoutInterval = 30
-        request.setValue("application/json", forHTTPHeaderField: "Accept")
-        if let body {
-            request.httpBody = body
-            request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        }
-        return request
     }
 
     private func encodedBody(_ value: [String: String]) throws -> Data {
@@ -142,26 +141,25 @@ public actor AuthenticationAPI: AuthenticationAPIProviding {
         }
     }
 
-    private static func mappedTransportError(_ error: URLError) -> AuthenticationError {
-        switch error.code {
-        case .cancelled: .cancelled
-        case .notConnectedToInternet, .networkConnectionLost, .dataNotAllowed:
+    private func mappedClientError(
+        _ error: SecureHTTPClientError
+    ) -> AuthenticationError {
+        switch error {
+        case .cancelled:
+            .cancelled
+        case .configuration:
+            .configuration
+        case .networkUnavailable:
             .networkUnavailable
-        case .timedOut: .timedOut
-        default: .serviceUnavailable
+        case .responseTooLarge:
+            .responseTooLarge
+        case .serviceUnavailable:
+            .serviceUnavailable
+        case .timedOut:
+            .timedOut
+        case .unexpectedResponse:
+            .unexpectedResponse
         }
-    }
-
-    private static func validatedBaseURL(_ url: URL?) -> URL? {
-        guard let url,
-              url.scheme?.lowercased() == "https",
-              url.host != nil,
-              url.user == nil,
-              url.password == nil,
-              url.query == nil,
-              url.fragment == nil,
-              url.path.isEmpty || url.path == "/" else { return nil }
-        return url
     }
 
     private static func decodeISO8601Date(_ decoder: Decoder) throws -> Date {

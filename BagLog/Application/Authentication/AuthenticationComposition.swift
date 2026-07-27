@@ -14,12 +14,16 @@ enum AuthenticationComposition {
 #endif
 
         let configuration = AuthenticationConfiguration(bundle: bundle)
+        let api = AuthenticationAPI(baseURL: configuration.apiBaseURL)
+        let sessionController = BagLogSessionController(
+            api: api,
+            storage: KeychainSessionVault(),
+            clock: SystemAuthenticationClock()
+        )
         return AuthenticationStore(
             dependencies: AuthenticationDependencies(
                 identityProvider: GoogleIdentityProvider(bundle: bundle),
-                api: AuthenticationAPI(baseURL: configuration.apiBaseURL),
-                sessionStorage: KeychainSessionVault(),
-                clock: SystemAuthenticationClock()
+                sessionController: sessionController
             )
         )
     }

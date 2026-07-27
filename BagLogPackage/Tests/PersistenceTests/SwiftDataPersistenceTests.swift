@@ -2,6 +2,7 @@ import Foundation
 import Testing
 @testable import Persistence
 
+extension PersistenceTestPlan {
 @Suite("SwiftData persistence")
 struct SwiftDataPersistenceTests {
     @Test("A loadout persists its ordered graph and reusable tags")
@@ -188,6 +189,7 @@ struct SwiftDataPersistenceTests {
                 )
             )
         }
+        #expect(try await persistence.loadouts().isEmpty)
     }
 
     @Test("Image import stores a downsampled thumbnail and supports removal")
@@ -218,4 +220,5 @@ struct SwiftDataPersistenceTests {
 
     private static let onePixelPNG =
         "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII="
+}
 }

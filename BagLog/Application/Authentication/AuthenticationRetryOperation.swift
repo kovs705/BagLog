@@ -3,5 +3,4 @@ enum AuthenticationRetryOperation {
     case signIn
     case signOut
     case saveSession
-    case finishLocalSignOut
 }

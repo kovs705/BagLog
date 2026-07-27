@@ -4,6 +4,8 @@
 <dict>
 	<key>BAGLOG_API_BASE_URL</key>
 	<string>$(BAGLOG_API_BASE_URL)</string>
+	<key>BAGLOG_PRIVATE_SYNC_ENABLED</key>
+	<string>$(BAGLOG_PRIVATE_SYNC_ENABLED)</string>
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
 	<key>CFBundleExecutable</key>

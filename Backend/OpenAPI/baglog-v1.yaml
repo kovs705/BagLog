@@ -1,1293 +1,767 @@
 openapi: 3.1.0
 info:
   title: BagLog API
-  version: 0.1.0
-  description: >-
-    Design-first contract for the first account, synchronization, publication,
-    fork, catalogue, and image-upload vertical slices. Release 1.0 of the iOS
-    app does not depend on this API.
+  version: 0.4.0
+  description: |
+    Implemented BagLog account, profile, private loadout synchronization, and
+    health API. Routes absent from this document are not part of the supported
+    API contract.
 servers:
-  - url: https://api.example.com
-    description: Replace with the deployment hostname.
+  - url: https://api.baglog.app
+    description: Production
 tags:
-  - name: Health
-  - name: Authentication
-  - name: Profile
-  - name: Loadouts
-  - name: Catalogue
-  - name: Sync
-  - name: Media
-  - name: Safety
-
+  - name: health
+    description: Process and dependency health.
+  - name: authentication
+    description: Federated sign-in and BagLog session transitions.
+  - name: profile
+    description: The authenticated account's profile.
+  - name: account
+    description: Account lifecycle operations.
+  - name: loadout
+    description: The authenticated account's private loadout aggregates.
+  - name: sync
+    description: Durable bootstrap and incremental private loadout synchronization.
 paths:
   /health/live:
     get:
-      tags: [Health]
       operationId: getLiveness
+      summary: Process liveness
+      tags: [health]
+      security: []
       responses:
         "204":
-          description: The process event loop is responsive.
-
+          description: The process can serve HTTP.
+          headers:
+            X-Request-ID: {$ref: "#/components/headers/RequestID"}
   /health/ready:
     get:
-      tags: [Health]
       operationId: getReadiness
+      summary: Dependency-aware readiness
+      tags: [health]
+      security: []
       responses:
         "204":
-          description: Required dependencies are available.
-        "503":
-          $ref: "#/components/responses/ServiceUnavailable"
-
-  /v1/auth/apple/exchange:
+          description: PostgreSQL is reachable.
+          headers:
+            X-Request-ID: {$ref: "#/components/headers/RequestID"}
+        "503": {$ref: "#/components/responses/ServiceUnavailable"}
+  /v1/auth/apple/nonce:
     post:
-      tags: [Authentication]
-      operationId: exchangeAppleAuthorization
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/AppleAuthorization"
+      operationId: createAppleNonce
+      summary: Create a single-use Sign in with Apple nonce
+      description: |
+        Send the SHA-256 hex digest of the returned nonce to Apple, then send
+        the raw nonce back to the Apple sign-in operation.
+      tags: [authentication]
+      security: []
       responses:
-        "200":
-          description: Existing account authenticated.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/AuthenticatedSession"
         "201":
-          description: New account created and authenticated.
+          description: Nonce created. Send its SHA-256 hex digest to Apple.
+          headers:
+            X-Request-ID: {$ref: "#/components/headers/RequestID"}
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/AuthenticatedSession"
-        "400":
-          $ref: "#/components/responses/BadRequest"
-        "401":
-          $ref: "#/components/responses/Unauthorized"
-        "409":
-          description: Initial profile UUID or handle is already in use.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
-        "429":
-          $ref: "#/components/responses/RateLimited"
-
-  /v1/auth/refresh:
+                type: object
+                additionalProperties: false
+                required: [nonce, expires_at]
+                properties:
+                  nonce:
+                    type: string
+                    minLength: 43
+                    maxLength: 43
+                    pattern: "^[A-Za-z0-9_-]{43}$"
+                  expires_at: {type: string, format: date-time}
+        "429": {$ref: "#/components/responses/RateLimited"}
+        "503": {$ref: "#/components/responses/ServiceUnavailable"}
+        "500": {$ref: "#/components/responses/InternalServerError"}
+  /v1/auth/apple/sign-in:
     post:
-      tags: [Authentication]
-      operationId: refreshSession
+      operationId: signInWithApple
+      summary: Verify Apple credentials and create a BagLog session
+      tags: [authentication]
+      security: []
       requestBody:
         required: true
         content:
           application/json:
             schema:
               type: object
+              additionalProperties: false
+              required: [identity_token, authorization_code, nonce]
+              properties:
+                identity_token: {type: string, minLength: 1, maxLength: 20480}
+                authorization_code: {type: string, minLength: 1, maxLength: 4096}
+                nonce:
+                  type: string
+                  minLength: 43
+                  maxLength: 43
+                  pattern: "^[A-Za-z0-9_-]{43}$"
+      responses:
+        "200":
+          description: Authenticated session.
+          headers:
+            X-Request-ID: {$ref: "#/components/headers/RequestID"}
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/TokenPair"}
+        "400": {$ref: "#/components/responses/BadRequest"}
+        "401": {$ref: "#/components/responses/Unauthorized"}
+        "403": {$ref: "#/components/responses/Forbidden"}
+        "429": {$ref: "#/components/responses/RateLimited"}
+        "503": {$ref: "#/components/responses/ServiceUnavailable"}
+        "500": {$ref: "#/components/responses/InternalServerError"}
+  /v1/auth/google/sign-in:
+    post:
+      operationId: signInWithGoogle
+      summary: Verify a Google ID token and create a BagLog session
+      tags: [authentication]
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [identity_token]
+              properties:
+                identity_token: {type: string, minLength: 1, maxLength: 20480}
+      responses:
+        "200":
+          description: Authenticated session.
+          headers:
+            X-Request-ID: {$ref: "#/components/headers/RequestID"}
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/TokenPair"}
+        "400": {$ref: "#/components/responses/BadRequest"}
+        "401": {$ref: "#/components/responses/Unauthorized"}
+        "403": {$ref: "#/components/responses/Forbidden"}
+        "429": {$ref: "#/components/responses/RateLimited"}
+        "503": {$ref: "#/components/responses/ServiceUnavailable"}
+        "500": {$ref: "#/components/responses/InternalServerError"}
+  /v1/auth/refresh:
+    post:
+      operationId: refreshSession
+      summary: Rotate an opaque refresh token
+      tags: [authentication]
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
               required: [refresh_token]
               properties:
                 refresh_token:
                   type: string
-                  minLength: 32
+                  minLength: 43
+                  maxLength: 43
+                  pattern: "^[A-Za-z0-9_-]{43}$"
       responses:
         "200":
-          description: Tokens rotated successfully.
+          description: Rotated session tokens.
+          headers:
+            X-Request-ID: {$ref: "#/components/headers/RequestID"}
           content:
             application/json:
-              schema:
-                $ref: "#/components/schemas/TokenPair"
-        "401":
-          $ref: "#/components/responses/Unauthorized"
-        "429":
-          $ref: "#/components/responses/RateLimited"
-
+              schema: {$ref: "#/components/schemas/TokenPair"}
+        "400": {$ref: "#/components/responses/BadRequest"}
+        "401": {$ref: "#/components/responses/Unauthorized"}
+        "429": {$ref: "#/components/responses/RateLimited"}
+        "500": {$ref: "#/components/responses/InternalServerError"}
   /v1/auth/logout:
     post:
-      tags: [Authentication]
-      operationId: logoutSession
-      security:
-        - bearerAuth: []
+      operationId: logout
+      summary: Revoke the authenticated token family
+      tags: [authentication]
+      security: [{bearerAuth: []}]
       responses:
         "204":
-          description: Current session revoked or already absent.
-        "401":
-          $ref: "#/components/responses/Unauthorized"
-
-  /v1/me:
-    get:
-      tags: [Profile]
-      operationId: getMyProfile
-      security:
-        - bearerAuth: []
-      responses:
-        "200":
-          description: Authenticated profile.
+          description: Session family revoked.
           headers:
-            ETag:
-              $ref: "#/components/headers/RevisionETag"
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Profile"
-        "401":
-          $ref: "#/components/responses/Unauthorized"
-    patch:
-      tags: [Profile]
-      operationId: updateMyProfile
-      security:
-        - bearerAuth: []
-      parameters:
-        - $ref: "#/components/parameters/IdempotencyKey"
-        - $ref: "#/components/parameters/RequiredIfMatch"
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/ProfileUpdate"
-      responses:
-        "200":
-          description: Updated profile.
-          headers:
-            ETag:
-              $ref: "#/components/headers/RevisionETag"
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Profile"
-        "400":
-          $ref: "#/components/responses/BadRequest"
-        "401":
-          $ref: "#/components/responses/Unauthorized"
-        "409":
-          description: Handle is already in use.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
-        "412":
-          $ref: "#/components/responses/RevisionConflict"
-    delete:
-      tags: [Profile]
-      operationId: requestAccountDeletion
-      description: >-
-        Revokes active sessions, schedules deletion of the account and its
-        associated data, and queues Sign in with Apple token revocation.
-      security:
-        - bearerAuth: []
-      parameters:
-        - $ref: "#/components/parameters/IdempotencyKey"
-      responses:
-        "202":
-          description: Account deletion accepted.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/AccountDeletionReceipt"
-        "401":
-          $ref: "#/components/responses/Unauthorized"
-
-  /v1/profiles/{profileID}/block:
-    parameters:
-      - $ref: "#/components/parameters/ProfileID"
-    put:
-      tags: [Safety]
-      operationId: blockProfile
-      description: Hides the profile and its catalogue content for this user.
-      security:
-        - bearerAuth: []
-      parameters:
-        - $ref: "#/components/parameters/IdempotencyKey"
-      responses:
-        "204":
-          description: Profile blocked or already blocked.
-        "400":
-          $ref: "#/components/responses/BadRequest"
-        "401":
-          $ref: "#/components/responses/Unauthorized"
-        "404":
-          $ref: "#/components/responses/NotFound"
-    delete:
-      tags: [Safety]
-      operationId: unblockProfile
-      security:
-        - bearerAuth: []
-      parameters:
-        - $ref: "#/components/parameters/IdempotencyKey"
-      responses:
-        "204":
-          description: Profile unblocked or already unblocked.
-        "401":
-          $ref: "#/components/responses/Unauthorized"
-        "404":
-          $ref: "#/components/responses/NotFound"
-
-  /v1/loadouts/{loadoutID}:
-    parameters:
-      - $ref: "#/components/parameters/LoadoutID"
-    get:
-      tags: [Loadouts]
-      operationId: getLoadout
-      security:
-        - bearerAuth: []
-      responses:
-        "200":
-          description: >-
-            Owned loadout or published public loadout. The ETag is the quoted
-            aggregate revision.
-          headers:
-            ETag:
-              $ref: "#/components/headers/RevisionETag"
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Loadout"
-        "401":
-          $ref: "#/components/responses/Unauthorized"
-        "404":
-          $ref: "#/components/responses/NotFound"
-    put:
-      tags: [Loadouts]
-      operationId: putLoadout
-      description: >-
-        Creates or atomically replaces an owned loadout aggregate. Use
-        If-None-Match: * for creation and If-Match with the last acknowledged
-        revision for updates.
-      security:
-        - bearerAuth: []
-      parameters:
-        - $ref: "#/components/parameters/IdempotencyKey"
-        - $ref: "#/components/parameters/IfMatch"
-        - $ref: "#/components/parameters/IfNoneMatch"
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/LoadoutWrite"
-      responses:
-        "200":
-          description: Existing aggregate updated.
-          headers:
-            ETag:
-              $ref: "#/components/headers/RevisionETag"
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Loadout"
-        "201":
-          description: Aggregate created.
-          headers:
-            ETag:
-              $ref: "#/components/headers/RevisionETag"
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Loadout"
-        "400":
-          $ref: "#/components/responses/BadRequest"
-        "401":
-          $ref: "#/components/responses/Unauthorized"
-        "404":
-          $ref: "#/components/responses/NotFound"
-        "412":
-          $ref: "#/components/responses/RevisionConflict"
-    delete:
-      tags: [Loadouts]
-      operationId: deleteLoadout
-      description: Soft-deletes an owned aggregate and emits a sync tombstone.
-      security:
-        - bearerAuth: []
-      parameters:
-        - $ref: "#/components/parameters/IdempotencyKey"
-        - $ref: "#/components/parameters/RequiredIfMatch"
-      responses:
-        "204":
-          description: Deleted or an identical retry already completed.
-        "401":
-          $ref: "#/components/responses/Unauthorized"
-        "404":
-          $ref: "#/components/responses/NotFound"
-        "412":
-          $ref: "#/components/responses/RevisionConflict"
-
-  /v1/loadouts/{loadoutID}/publish:
+            X-Request-ID: {$ref: "#/components/headers/RequestID"}
+        "401": {$ref: "#/components/responses/Unauthorized"}
+        "500": {$ref: "#/components/responses/InternalServerError"}
+  /v1/auth/apple/events:
     post:
-      tags: [Loadouts]
-      operationId: publishLoadout
-      description: Validates and publishes an owned loadout in one transaction.
-      security:
-        - bearerAuth: []
-      parameters:
-        - $ref: "#/components/parameters/LoadoutID"
-        - $ref: "#/components/parameters/IdempotencyKey"
-        - $ref: "#/components/parameters/RequiredIfMatch"
-      responses:
-        "200":
-          description: Published aggregate.
-          headers:
-            ETag:
-              $ref: "#/components/headers/RevisionETag"
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Loadout"
-        "400":
-          $ref: "#/components/responses/BadRequest"
-        "401":
-          $ref: "#/components/responses/Unauthorized"
-        "404":
-          $ref: "#/components/responses/NotFound"
-        "412":
-          $ref: "#/components/responses/RevisionConflict"
-
-  /v1/loadouts/{loadoutID}/fork:
-    post:
-      tags: [Loadouts]
-      operationId: forkLoadout
-      description: >-
-        Clones a published public loadout into an independent private draft.
-        Item, link, and asset association IDs are new; immutable media objects
-        may be referenced by both loadouts.
-      security:
-        - bearerAuth: []
-      parameters:
-        - $ref: "#/components/parameters/LoadoutID"
-        - $ref: "#/components/parameters/IdempotencyKey"
+      operationId: receiveAppleAccountEvent
+      summary: Receive an Apple-signed account notification
+      description: |
+        This operation does not use a BagLog bearer token. The signed JWS in
+        `payload` is the credential and is verified before the event is used.
+      tags: [authentication]
+      security: []
       requestBody:
         required: true
         content:
           application/json:
             schema:
               type: object
-              required: [new_loadout_id]
+              additionalProperties: false
+              required: [payload]
               properties:
-                new_loadout_id:
-                  type: string
-                  format: uuid
-                title:
-                  type: string
-                  minLength: 1
-                  maxLength: 160
-      responses:
-        "201":
-          description: Independent private draft.
-          headers:
-            ETag:
-              $ref: "#/components/headers/RevisionETag"
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Loadout"
-        "400":
-          $ref: "#/components/responses/BadRequest"
-        "401":
-          $ref: "#/components/responses/Unauthorized"
-        "404":
-          $ref: "#/components/responses/NotFound"
-        "409":
-          description: The requested new UUID is already in use.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
-
-  /v1/loadouts/{loadoutID}/reports:
-    post:
-      tags: [Safety]
-      operationId: reportLoadout
-      description: Reports a published loadout for moderation review.
-      security:
-        - bearerAuth: []
-      parameters:
-        - $ref: "#/components/parameters/LoadoutID"
-        - $ref: "#/components/parameters/IdempotencyKey"
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/ContentReportWrite"
-      responses:
-        "202":
-          description: Report accepted for review or identical report retained.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ContentReportReceipt"
-        "400":
-          $ref: "#/components/responses/BadRequest"
-        "401":
-          $ref: "#/components/responses/Unauthorized"
-        "404":
-          $ref: "#/components/responses/NotFound"
-
-  /v1/catalogue:
-    get:
-      tags: [Catalogue]
-      operationId: getCatalogue
-      security:
-        - bearerAuth: []
-      parameters:
-        - name: after
-          in: query
-          schema:
-            type: string
-          description: Opaque keyset cursor from the previous response.
-        - name: limit
-          in: query
-          schema:
-            type: integer
-            minimum: 1
-            maximum: 50
-            default: 20
-        - name: query
-          in: query
-          schema:
-            type: string
-            maxLength: 120
-        - name: category
-          in: query
-          schema:
-            type: string
-            maxLength: 80
-        - name: tag
-          in: query
-          schema:
-            type: string
-            maxLength: 80
-      responses:
-        "200":
-          description: Published public loadouts ordered by a stable keyset.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/CataloguePage"
-        "400":
-          $ref: "#/components/responses/BadRequest"
-        "401":
-          $ref: "#/components/responses/Unauthorized"
-
-  /v1/sync/changes:
-    get:
-      tags: [Sync]
-      operationId: getSyncChanges
-      security:
-        - bearerAuth: []
-      parameters:
-        - name: after
-          in: query
-          schema:
-            type: string
-          description: Last durably applied opaque cursor; omit for first sync.
-        - name: limit
-          in: query
-          schema:
-            type: integer
-            minimum: 1
-            maximum: 200
-            default: 100
-      responses:
-        "200":
-          description: Ordered private resource changes and tombstones.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/SyncPage"
-        "400":
-          $ref: "#/components/responses/BadRequest"
-        "401":
-          $ref: "#/components/responses/Unauthorized"
-        "410":
-          description: >-
-            The supplied cursor is outside the retained change window. The
-            client must request a fresh baseline without an `after` cursor and
-            reconcile it with any unsent local mutations.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
-
-  /v1/media/uploads:
-    post:
-      tags: [Media]
-      operationId: prepareMediaUpload
-      security:
-        - bearerAuth: []
-      parameters:
-        - $ref: "#/components/parameters/IdempotencyKey"
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/PrepareMediaUpload"
-      responses:
-        "201":
-          description: Short-lived upload capability.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/PreparedMediaUpload"
-        "400":
-          $ref: "#/components/responses/BadRequest"
-        "401":
-          $ref: "#/components/responses/Unauthorized"
-        "413":
-          description: Declared upload is too large.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
-
-  /v1/media/uploads/{uploadID}/content:
-    put:
-      tags: [Media]
-      operationId: uploadMediaContent
-      description: >-
-        Streams bytes to the Pi filesystem adapter. A scaled deployment may
-        return an object-storage URL from prepare instead of this API URL.
-      security:
-        - bearerAuth: []
-      parameters:
-        - $ref: "#/components/parameters/UploadID"
-      requestBody:
-        required: true
-        content:
-          application/octet-stream:
-            schema:
-              type: string
-              format: binary
+                payload: {type: string, minLength: 1, maxLength: 20480}
       responses:
         "204":
-          description: Bytes received; completion is still required.
-        "400":
-          $ref: "#/components/responses/BadRequest"
-        "401":
-          $ref: "#/components/responses/Unauthorized"
-        "404":
-          $ref: "#/components/responses/NotFound"
-        "413":
-          description: Stream exceeded the prepared size or server limit.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
-
-  /v1/media/uploads/{uploadID}/complete:
-    post:
-      tags: [Media]
-      operationId: completeMediaUpload
-      security:
-        - bearerAuth: []
-      parameters:
-        - $ref: "#/components/parameters/UploadID"
-        - $ref: "#/components/parameters/IdempotencyKey"
+          description: Signed event accepted or already processed.
+          headers:
+            X-Request-ID: {$ref: "#/components/headers/RequestID"}
+        "400": {$ref: "#/components/responses/BadRequest"}
+        "401": {$ref: "#/components/responses/Unauthorized"}
+        "403": {$ref: "#/components/responses/Forbidden"}
+        "429": {$ref: "#/components/responses/RateLimited"}
+        "503": {$ref: "#/components/responses/ServiceUnavailable"}
+        "500": {$ref: "#/components/responses/InternalServerError"}
+  /v1/profile:
+    get:
+      operationId: getOwnProfile
+      summary: Read the authenticated account's profile
+      tags: [profile]
+      security: [{bearerAuth: []}]
       responses:
         "200":
-          description: Verified immutable media object.
+          description: Profile. The strong ETag is its current revision.
+          headers:
+            ETag: {$ref: "#/components/headers/RevisionETag"}
+            X-Request-ID: {$ref: "#/components/headers/RequestID"}
           content:
             application/json:
-              schema:
-                $ref: "#/components/schemas/MediaObject"
-        "400":
-          $ref: "#/components/responses/BadRequest"
-        "401":
-          $ref: "#/components/responses/Unauthorized"
-        "404":
-          $ref: "#/components/responses/NotFound"
-
+              schema: {$ref: "#/components/schemas/Profile"}
+        "401": {$ref: "#/components/responses/Unauthorized"}
+        "404": {$ref: "#/components/responses/NotFound"}
+        "500": {$ref: "#/components/responses/InternalServerError"}
+    post:
+      operationId: createOwnProfile
+      summary: Create the authenticated account's profile
+      tags: [profile]
+      security: [{bearerAuth: []}]
+      requestBody:
+        $ref: "#/components/requestBodies/ProfileWrite"
+      responses:
+        "201":
+          description: Profile created.
+          headers:
+            ETag: {$ref: "#/components/headers/RevisionETag"}
+            X-Request-ID: {$ref: "#/components/headers/RequestID"}
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/Profile"}
+        "400": {$ref: "#/components/responses/BadRequest"}
+        "401": {$ref: "#/components/responses/Unauthorized"}
+        "403": {$ref: "#/components/responses/Forbidden"}
+        "409": {$ref: "#/components/responses/Conflict"}
+        "500": {$ref: "#/components/responses/InternalServerError"}
+    put:
+      operationId: updateOwnProfile
+      summary: Replace profile fields at an expected revision
+      tags: [profile]
+      security: [{bearerAuth: []}]
+      parameters:
+        - name: If-Match
+          in: header
+          required: true
+          description: Strong ETag returned by the latest profile read or write.
+          schema: {type: string, pattern: '^"[1-9][0-9]*"$'}
+      requestBody:
+        $ref: "#/components/requestBodies/ProfileWrite"
+      responses:
+        "200":
+          description: Profile updated.
+          headers:
+            ETag: {$ref: "#/components/headers/RevisionETag"}
+            X-Request-ID: {$ref: "#/components/headers/RequestID"}
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/Profile"}
+        "400": {$ref: "#/components/responses/BadRequest"}
+        "401": {$ref: "#/components/responses/Unauthorized"}
+        "404": {$ref: "#/components/responses/NotFound"}
+        "409": {$ref: "#/components/responses/Conflict"}
+        "412": {$ref: "#/components/responses/PreconditionFailed"}
+        "428": {$ref: "#/components/responses/PreconditionRequired"}
+        "500": {$ref: "#/components/responses/InternalServerError"}
+  /v1/loadouts:
+    post:
+      operationId: createPrivateLoadout
+      summary: Create a private loadout aggregate
+      description: |
+        The client owns every loadout, item, and link UUID. Repeating the same
+        canonical mutation with the same Idempotency-Key returns the stored
+        response without applying another change.
+      tags: [loadout]
+      security: [{bearerAuth: []}]
+      parameters:
+        - {$ref: "#/components/parameters/IdempotencyKey"}
+      requestBody:
+        $ref: "#/components/requestBodies/LoadoutWrite"
+      responses:
+        "201":
+          description: Private loadout created.
+          headers:
+            ETag: {$ref: "#/components/headers/RevisionETag"}
+            Idempotency-Replayed: {$ref: "#/components/headers/IdempotencyReplayed"}
+            X-Request-ID: {$ref: "#/components/headers/RequestID"}
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/Loadout"}
+        "400": {$ref: "#/components/responses/BadRequest"}
+        "401": {$ref: "#/components/responses/Unauthorized"}
+        "403": {$ref: "#/components/responses/Forbidden"}
+        "409": {$ref: "#/components/responses/Conflict"}
+        "500": {$ref: "#/components/responses/InternalServerError"}
+  /v1/loadouts/{loadout_id}:
+    parameters:
+      - {$ref: "#/components/parameters/LoadoutID"}
+    get:
+      operationId: getPrivateLoadout
+      summary: Read an owned private loadout aggregate
+      tags: [loadout]
+      security: [{bearerAuth: []}]
+      responses:
+        "200":
+          description: Current private loadout aggregate.
+          headers:
+            ETag: {$ref: "#/components/headers/RevisionETag"}
+            X-Request-ID: {$ref: "#/components/headers/RequestID"}
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/Loadout"}
+        "400": {$ref: "#/components/responses/BadRequest"}
+        "401": {$ref: "#/components/responses/Unauthorized"}
+        "404": {$ref: "#/components/responses/NotFound"}
+        "500": {$ref: "#/components/responses/InternalServerError"}
+    put:
+      operationId: replacePrivateLoadout
+      summary: Replace an owned private loadout aggregate at an expected revision
+      description: |
+        The body UUID must equal the path UUID. The complete item, link, and tag
+        graph is replaced in one transaction.
+      tags: [loadout]
+      security: [{bearerAuth: []}]
+      parameters:
+        - {$ref: "#/components/parameters/IdempotencyKey"}
+        - {$ref: "#/components/parameters/IfMatch"}
+      requestBody:
+        $ref: "#/components/requestBodies/LoadoutWrite"
+      responses:
+        "200":
+          description: Updated private loadout aggregate.
+          headers:
+            ETag: {$ref: "#/components/headers/RevisionETag"}
+            Idempotency-Replayed: {$ref: "#/components/headers/IdempotencyReplayed"}
+            X-Request-ID: {$ref: "#/components/headers/RequestID"}
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/Loadout"}
+        "400": {$ref: "#/components/responses/BadRequest"}
+        "401": {$ref: "#/components/responses/Unauthorized"}
+        "404": {$ref: "#/components/responses/NotFound"}
+        "409": {$ref: "#/components/responses/Conflict"}
+        "412": {$ref: "#/components/responses/PreconditionFailed"}
+        "428": {$ref: "#/components/responses/PreconditionRequired"}
+        "500": {$ref: "#/components/responses/InternalServerError"}
+    delete:
+      operationId: deletePrivateLoadout
+      summary: Delete an owned private loadout at an expected revision
+      description: |
+        The request body must be empty. Deletion preserves a durable sync
+        tombstone through the documented offline retention window.
+      tags: [loadout]
+      security: [{bearerAuth: []}]
+      parameters:
+        - {$ref: "#/components/parameters/IdempotencyKey"}
+        - {$ref: "#/components/parameters/IfMatch"}
+      responses:
+        "200":
+          description: Loadout deleted and tombstone recorded.
+          headers:
+            ETag: {$ref: "#/components/headers/RevisionETag"}
+            Idempotency-Replayed: {$ref: "#/components/headers/IdempotencyReplayed"}
+            X-Request-ID: {$ref: "#/components/headers/RequestID"}
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/LoadoutTombstone"}
+        "400": {$ref: "#/components/responses/BadRequest"}
+        "401": {$ref: "#/components/responses/Unauthorized"}
+        "404": {$ref: "#/components/responses/NotFound"}
+        "409": {$ref: "#/components/responses/Conflict"}
+        "412": {$ref: "#/components/responses/PreconditionFailed"}
+        "428": {$ref: "#/components/responses/PreconditionRequired"}
+        "500": {$ref: "#/components/responses/InternalServerError"}
+  /v1/sync/bootstrap:
+    get:
+      operationId: bootstrapPrivateLoadouts
+      summary: Page through the current private loadout state
+      description: |
+        Omit cursor and after on the first request. Keep the returned cursor
+        fixed while following next_after, then request incremental changes from
+        that cursor. Restart bootstrap if the cursor expires.
+      tags: [sync]
+      security: [{bearerAuth: []}]
+      parameters:
+        - name: cursor
+          in: query
+          description: Fixed bootstrap watermark returned by the first page.
+          schema: {$ref: "#/components/schemas/SyncCursor"}
+        - name: after
+          in: query
+          description: Exclusive loadout UUID returned as next_after.
+          schema: {type: string, format: uuid}
+        - {$ref: "#/components/parameters/SyncLimit"}
+      responses:
+        "200":
+          description: A bootstrap page and its fixed change watermark.
+          headers:
+            X-Request-ID: {$ref: "#/components/headers/RequestID"}
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/LoadoutBootstrapPage"}
+        "400": {$ref: "#/components/responses/BadRequest"}
+        "401": {$ref: "#/components/responses/Unauthorized"}
+        "410": {$ref: "#/components/responses/Gone"}
+        "500": {$ref: "#/components/responses/InternalServerError"}
+  /v1/sync/changes:
+    get:
+      operationId: getPrivateLoadoutChanges
+      summary: Read durable private loadout changes after a cursor
+      description: |
+        Upserts contain the aggregate snapshot committed with the mutation.
+        Deletes contain a revisioned tombstone and a null loadout.
+      tags: [sync]
+      security: [{bearerAuth: []}]
+      parameters:
+        - name: cursor
+          in: query
+          required: true
+          description: Exclusive cursor from bootstrap or a previous change page.
+          schema: {$ref: "#/components/schemas/SyncCursor"}
+        - {$ref: "#/components/parameters/SyncLimit"}
+      responses:
+        "200":
+          description: Ordered durable changes after the supplied cursor.
+          headers:
+            X-Request-ID: {$ref: "#/components/headers/RequestID"}
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/LoadoutChangePage"}
+        "400": {$ref: "#/components/responses/BadRequest"}
+        "401": {$ref: "#/components/responses/Unauthorized"}
+        "410": {$ref: "#/components/responses/Gone"}
+        "500": {$ref: "#/components/responses/InternalServerError"}
+  /v1/account:
+    delete:
+      operationId: deleteOwnAccount
+      summary: Revoke sessions and durably request complete account deletion
+      description: The request body must be empty.
+      tags: [account]
+      security: [{bearerAuth: []}]
+      responses:
+        "202":
+          description: Deletion accepted; access is revoked immediately.
+          headers:
+            X-Request-ID: {$ref: "#/components/headers/RequestID"}
+        "400": {$ref: "#/components/responses/BadRequest"}
+        "401": {$ref: "#/components/responses/Unauthorized"}
+        "403": {$ref: "#/components/responses/Forbidden"}
+        "500": {$ref: "#/components/responses/InternalServerError"}
 components:
   securitySchemes:
     bearerAuth:
       type: http
       scheme: bearer
       bearerFormat: JWT
-
+      description: BagLog access token issued by a sign-in or refresh operation.
+  headers:
+    RequestID:
+      description: Identifier repeated in an error response's `trace_id`.
+      schema:
+        type: string
+        pattern: "^(?:[a-f0-9]{32}|request-id-unavailable)$"
+    RevisionETag:
+      description: Strong quoted integer aggregate revision.
+      schema: {type: string, pattern: '^"[1-9][0-9]*"$'}
+    IdempotencyReplayed:
+      description: Present and true only when the stored mutation response was replayed.
+      schema: {type: string, const: "true"}
   parameters:
     LoadoutID:
-      name: loadoutID
+      name: loadout_id
       in: path
       required: true
-      schema:
-        type: string
-        format: uuid
-    UploadID:
-      name: uploadID
-      in: path
-      required: true
-      schema:
-        type: string
-        format: uuid
-    ProfileID:
-      name: profileID
-      in: path
-      required: true
-      schema:
-        type: string
-        format: uuid
+      description: Application-owned stable loadout UUID.
+      schema: {type: string, format: uuid}
     IdempotencyKey:
       name: Idempotency-Key
       in: header
       required: true
+      description: |
+        UUID scoped to the authenticated account and bound to the canonical
+        method, resource, expected revision, and aggregate body.
       schema:
         type: string
         format: uuid
     IfMatch:
       name: If-Match
       in: header
-      required: false
-      description: Quoted revision for an update. Omit only when creating.
-      schema:
-        type: string
-        pattern: '^"[1-9][0-9]*"$'
-    RequiredIfMatch:
-      name: If-Match
-      in: header
       required: true
-      description: Quoted last acknowledged aggregate revision.
-      schema:
-        type: string
-        pattern: '^"[1-9][0-9]*"$'
-    IfNoneMatch:
-      name: If-None-Match
-      in: header
-      required: false
-      description: Must be `*` when creating a client-identified resource.
-      schema:
-        type: string
-        enum: ["*"]
-
-  headers:
-    RevisionETag:
-      description: Quoted monotonically increasing aggregate revision.
-      schema:
-        type: string
-        pattern: '^"[1-9][0-9]*"$'
-    RetryAfter:
-      description: Seconds until the client should retry.
-      schema:
-        type: integer
-        minimum: 1
-
+      description: Strong revision ETag returned by the latest successful read or write.
+      schema: {type: string, pattern: '^"[1-9][0-9]*"$'}
+    SyncLimit:
+      name: limit
+      in: query
+      description: Maximum entries in this page.
+      schema: {type: integer, minimum: 1, maximum: 20, default: 20}
+  requestBodies:
+    ProfileWrite:
+      required: true
+      content:
+        application/json:
+          schema: {$ref: "#/components/schemas/ProfileWrite"}
+    LoadoutWrite:
+      required: true
+      content:
+        application/json:
+          schema: {$ref: "#/components/schemas/LoadoutWrite"}
   responses:
     BadRequest:
-      description: Request failed validation.
-      content:
-        application/json:
-          schema:
-            $ref: "#/components/schemas/Error"
-    Unauthorized:
-      description: Authentication is absent, expired, or invalid.
-      content:
-        application/json:
-          schema:
-            $ref: "#/components/schemas/Error"
-    NotFound:
-      description: Resource is absent or not visible to this account.
-      content:
-        application/json:
-          schema:
-            $ref: "#/components/schemas/Error"
-    RevisionConflict:
-      description: The supplied revision is stale.
-      content:
-        application/json:
-          schema:
-            $ref: "#/components/schemas/RevisionConflict"
-    RateLimited:
-      description: Too many requests.
+      description: Invalid request.
       headers:
+        X-Request-ID: {$ref: "#/components/headers/RequestID"}
+      content:
+        application/json:
+          schema: {$ref: "#/components/schemas/Error"}
+    Unauthorized:
+      description: Missing, invalid, expired, or replayed credential.
+      headers:
+        X-Request-ID: {$ref: "#/components/headers/RequestID"}
+        WWW-Authenticate:
+          description: Bearer challenge on protected operations.
+          schema: {type: string}
+      content:
+        application/json:
+          schema: {$ref: "#/components/schemas/Error"}
+    Forbidden:
+      description: The authenticated account is unavailable for this transition.
+      headers:
+        X-Request-ID: {$ref: "#/components/headers/RequestID"}
+      content:
+        application/json:
+          schema: {$ref: "#/components/schemas/Error"}
+    NotFound:
+      description: Resource not found.
+      headers:
+        X-Request-ID: {$ref: "#/components/headers/RequestID"}
+      content:
+        application/json:
+          schema: {$ref: "#/components/schemas/Error"}
+    Conflict:
+      description: Resource, identifier, or idempotency conflict.
+      headers:
+        X-Request-ID: {$ref: "#/components/headers/RequestID"}
         Retry-After:
-          $ref: "#/components/headers/RetryAfter"
+          description: Suggested retry delay when the same mutation is still processing.
+          schema: {type: integer, minimum: 1}
       content:
         application/json:
-          schema:
-            $ref: "#/components/schemas/Error"
+          schema: {$ref: "#/components/schemas/Error"}
+    PreconditionFailed:
+      description: The supplied revision is stale.
+      headers:
+        X-Request-ID: {$ref: "#/components/headers/RequestID"}
+      content:
+        application/json:
+          schema: {$ref: "#/components/schemas/Error"}
+    PreconditionRequired:
+      description: A strong If-Match revision is required.
+      headers:
+        X-Request-ID: {$ref: "#/components/headers/RequestID"}
+      content:
+        application/json:
+          schema: {$ref: "#/components/schemas/Error"}
+    Gone:
+      description: The durable sync cursor has expired and bootstrap is required.
+      headers:
+        X-Request-ID: {$ref: "#/components/headers/RequestID"}
+      content:
+        application/json:
+          schema: {$ref: "#/components/schemas/Error"}
+    RateLimited:
+      description: Authentication transition rate limit exceeded.
+      headers:
+        X-Request-ID: {$ref: "#/components/headers/RequestID"}
+        Retry-After: {schema: {type: integer}}
+      content:
+        application/json:
+          schema: {$ref: "#/components/schemas/Error"}
     ServiceUnavailable:
-      description: A required dependency is unavailable.
+      description: A required dependency or configured identity provider is unavailable.
+      headers:
+        X-Request-ID: {$ref: "#/components/headers/RequestID"}
+        Retry-After:
+          description: Suggested delay in seconds when an identity provider is unavailable.
+          schema: {type: integer}
       content:
         application/json:
-          schema:
-            $ref: "#/components/schemas/Error"
-
+          schema: {$ref: "#/components/schemas/Error"}
+    InternalServerError:
+      description: An unexpected internal failure occurred.
+      headers:
+        X-Request-ID: {$ref: "#/components/headers/RequestID"}
+      content:
+        application/json:
+          schema: {$ref: "#/components/schemas/Error"}
   schemas:
-    AppleAuthorization:
-      type: object
-      additionalProperties: false
-      required: [identity_token, authorization_code, nonce]
-      properties:
-        identity_token:
-          type: string
-          minLength: 1
-        authorization_code:
-          type: string
-          minLength: 1
-        nonce:
-          type: string
-          minLength: 16
-        profile:
-          description: Present only on the first Apple authorization.
-          $ref: "#/components/schemas/InitialProfile"
-
-    InitialProfile:
-      type: object
-      additionalProperties: false
-      required: [id, handle, display_name]
-      properties:
-        id:
-          type: string
-          format: uuid
-        handle:
-          type: string
-          pattern: '^[A-Za-z0-9_]{3,30}$'
-        display_name:
-          type: string
-          minLength: 1
-          maxLength: 80
-
-    AuthenticatedSession:
-      type: object
-      additionalProperties: false
-      required: [tokens, profile]
-      properties:
-        tokens:
-          $ref: "#/components/schemas/TokenPair"
-        profile:
-          $ref: "#/components/schemas/Profile"
-
     TokenPair:
       type: object
       additionalProperties: false
-      required: [access_token, access_token_expires_at, refresh_token]
+      required: [access_token, access_expires_at, refresh_token, refresh_expires_at, token_type]
       properties:
-        access_token:
-          type: string
-        access_token_expires_at:
-          type: string
-          format: date-time
+        access_token: {type: string, minLength: 1, maxLength: 4096}
+        access_expires_at: {type: string, format: date-time}
         refresh_token:
           type: string
-
-    AccountDeletionReceipt:
+          minLength: 43
+          maxLength: 43
+          pattern: "^[A-Za-z0-9_-]{43}$"
+        refresh_expires_at: {type: string, format: date-time}
+        token_type: {type: string, const: Bearer}
+    ProfileWrite:
       type: object
       additionalProperties: false
-      required: [requested_at, scheduled_for]
+      required: [handle, display_name]
       properties:
-        requested_at:
-          type: string
-          format: date-time
-        scheduled_for:
-          type: string
-          format: date-time
-
+        handle: {type: string, pattern: '^[A-Za-z0-9_]{3,30}$'}
+        display_name: {type: string, minLength: 1, maxLength: 80}
+        bio: {type: [string, "null"], maxLength: 500}
     Profile:
-      type: object
-      additionalProperties: false
-      required: [id, handle, display_name, revision, created_at, updated_at]
-      properties:
-        id:
-          type: string
-          format: uuid
-        handle:
-          type: string
-        display_name:
-          type: string
-        bio:
-          type: [string, "null"]
-        avatar:
-          oneOf:
-            - $ref: "#/components/schemas/MediaObject"
-            - type: "null"
-        revision:
-          type: integer
-          minimum: 1
-        created_at:
-          type: string
-          format: date-time
-        updated_at:
-          type: string
-          format: date-time
-
-    ProfileUpdate:
-      type: object
-      additionalProperties: false
-      minProperties: 1
-      properties:
-        handle:
-          type: string
-          pattern: '^[A-Za-z0-9_]{3,30}$'
-        display_name:
-          type: string
-          minLength: 1
-          maxLength: 80
-        bio:
-          type: [string, "null"]
-          maxLength: 500
-        avatar_media_id:
-          type: [string, "null"]
-          format: uuid
-
-    Loadout:
+      unevaluatedProperties: false
       allOf:
-        - $ref: "#/components/schemas/LoadoutContent"
+        - {$ref: "#/components/schemas/ProfileWrite"}
         - type: object
-          required:
-            - owner_profile_id
-            - moderation_state
-            - revision
-            - created_at
-            - updated_at
+          required: [id, revision, created_at, updated_at]
           properties:
-            owner_profile_id:
-              type: string
-              format: uuid
-            owner:
-              $ref: "#/components/schemas/ProfileSummary"
-            moderation_state:
-              type: string
-              enum: [not_reviewed, pending, approved, rejected, hidden]
-            revision:
-              type: integer
-              minimum: 1
-            created_at:
-              type: string
-              format: date-time
-            updated_at:
-              type: string
-              format: date-time
-            published_at:
-              type: [string, "null"]
-              format: date-time
-            archived_at:
-              type: [string, "null"]
-              format: date-time
-            fork_origin:
-              oneOf:
-                - $ref: "#/components/schemas/ForkOrigin"
-                - type: "null"
-      unevaluatedProperties: false
-
-    LoadoutWrite:
-      allOf:
-        - $ref: "#/components/schemas/LoadoutContent"
-      unevaluatedProperties: false
-
-    LoadoutContent:
-      type: object
-      required:
-        - id
-        - title
-        - summary
-        - category
-        - visibility
-        - status
-        - tags
-        - items
-        - assets
-      properties:
-        id:
-          type: string
-          format: uuid
-        title:
-          type: string
-          minLength: 1
-          maxLength: 160
-        summary:
-          type: string
-          maxLength: 4000
-        category:
-          type: string
-          minLength: 1
-          maxLength: 80
-        visibility:
-          type: string
-          enum: [private, public]
-        status:
-          type: string
-          enum: [draft, published, archived]
-        tags:
-          type: array
-          maxItems: 20
-          uniqueItems: true
-          items:
-            type: string
-            minLength: 1
-            maxLength: 80
-        items:
-          type: array
-          maxItems: 200
-          items:
-            $ref: "#/components/schemas/LoadoutItem"
-        assets:
-          type: array
-          maxItems: 10
-          items:
-            $ref: "#/components/schemas/LoadoutAsset"
-
-    LoadoutItem:
+            id: {type: string, format: uuid}
+            revision: {type: integer, minimum: 1}
+            created_at: {type: string, format: date-time}
+            updated_at: {type: string, format: date-time}
+    LoadoutLink:
       type: object
       additionalProperties: false
-      required: [id, title, quantity, sort_index, is_essential, links]
+      required: [id, url]
       properties:
-        id:
-          type: string
-          format: uuid
-        title:
-          type: string
-          minLength: 1
-          maxLength: 240
-        category:
-          type: [string, "null"]
-          maxLength: 120
-        brand:
-          type: [string, "null"]
-          maxLength: 160
-        model:
-          type: [string, "null"]
-          maxLength: 160
-        notes:
-          type: [string, "null"]
-          maxLength: 4000
-        quantity:
-          type: integer
-          minimum: 1
-          maximum: 9999
-        sort_index:
-          type: integer
-          minimum: 0
-        is_essential:
-          type: boolean
-        links:
-          type: array
-          maxItems: 20
-          items:
-            $ref: "#/components/schemas/ItemLink"
-
-    ItemLink:
-      type: object
-      additionalProperties: false
-      required: [id, url, sort_index]
-      properties:
-        id:
-          type: string
-          format: uuid
+        id: {type: string, format: uuid}
         url:
           type: string
           format: uri
-          pattern: '^https://'
-        label:
-          type: [string, "null"]
-          maxLength: 160
-        sort_index:
-          type: integer
-          minimum: 0
-
-    LoadoutAsset:
+          pattern: "^https://"
+          maxLength: 2048
+        label: {type: [string, "null"], minLength: 1, maxLength: 160}
+    LoadoutItem:
       type: object
       additionalProperties: false
-      required: [id, media_object_id, sort_index]
+      required: [id, title, quantity, is_essential, links]
       properties:
-        id:
-          type: string
-          format: uuid
-        media_object_id:
-          type: string
-          format: uuid
-        sort_index:
-          type: integer
-          minimum: 0
-        caption:
-          type: [string, "null"]
-          maxLength: 500
-        media:
-          $ref: "#/components/schemas/MediaObject"
-
-    ForkOrigin:
-      type: object
-      additionalProperties: false
-      required:
-        - source_loadout_id
-        - root_loadout_id
-        - source_revision
-        - source_title
-        - source_author_handle
-        - forked_at
-      properties:
-        source_loadout_id:
-          type: string
-          format: uuid
-        root_loadout_id:
-          type: string
-          format: uuid
-        source_revision:
-          type: integer
-          minimum: 1
-        source_title:
-          type: string
-        source_author_handle:
-          type: string
-        forked_at:
-          type: string
-          format: date-time
-
-    ProfileSummary:
-      type: object
-      additionalProperties: false
-      required: [id, handle, display_name]
-      properties:
-        id:
-          type: string
-          format: uuid
-        handle:
-          type: string
-        display_name:
-          type: string
-        avatar_url:
-          type: [string, "null"]
-          format: uri
-
-    CataloguePage:
-      type: object
-      additionalProperties: false
-      required: [entries, has_more]
-      properties:
-        entries:
+        id: {type: string, format: uuid}
+        title: {type: string, minLength: 1, maxLength: 240}
+        category: {type: [string, "null"], minLength: 1, maxLength: 120}
+        brand: {type: [string, "null"], minLength: 1, maxLength: 160}
+        model: {type: [string, "null"], minLength: 1, maxLength: 160}
+        notes: {type: [string, "null"], minLength: 1, maxLength: 4000}
+        quantity: {type: integer, minimum: 1, maximum: 10000}
+        is_essential: {type: boolean}
+        links:
           type: array
-          items:
-            $ref: "#/components/schemas/CatalogueEntry"
-        next_cursor:
-          type: [string, "null"]
-        has_more:
-          type: boolean
-
-    CatalogueEntry:
+          maxItems: 10
+          items: {$ref: "#/components/schemas/LoadoutLink"}
+    LoadoutWrite:
       type: object
       additionalProperties: false
-      required:
-        - id
-        - title
-        - summary
-        - category
-        - owner
-        - tags
-        - item_count
-        - published_at
+      required: [id, title, summary, category, items, tags]
       properties:
-        id:
-          type: string
-          format: uuid
-        title:
-          type: string
-        summary:
-          type: string
-        category:
-          type: string
-        owner:
-          $ref: "#/components/schemas/ProfileSummary"
+        id: {type: string, format: uuid}
+        title: {type: string, minLength: 1, maxLength: 160}
+        summary: {type: string, maxLength: 4000}
+        category: {type: string, minLength: 1, maxLength: 80}
+        items:
+          type: array
+          maxItems: 100
+          items: {$ref: "#/components/schemas/LoadoutItem"}
         tags:
           type: array
-          items:
-            type: string
-        cover:
+          maxItems: 30
+          uniqueItems: true
+          items: {type: string, minLength: 1, maxLength: 80}
+    Loadout:
+      unevaluatedProperties: false
+      allOf:
+        - {$ref: "#/components/schemas/LoadoutWrite"}
+        - type: object
+          required: [revision, created_at, updated_at]
+          properties:
+            revision: {type: integer, minimum: 1}
+            created_at: {type: string, format: date-time}
+            updated_at: {type: string, format: date-time}
+    LoadoutTombstone:
+      type: object
+      additionalProperties: false
+      required: [id, revision, deleted_at]
+      properties:
+        id: {type: string, format: uuid}
+        revision: {type: integer, minimum: 1}
+        deleted_at: {type: string, format: date-time}
+    SyncCursor:
+      type: integer
+      format: int64
+      minimum: 0
+    LoadoutBootstrapPage:
+      type: object
+      additionalProperties: false
+      required: [loadouts, cursor, next_after, has_more]
+      properties:
+        loadouts:
+          type: array
+          maxItems: 20
+          items: {$ref: "#/components/schemas/Loadout"}
+        cursor: {$ref: "#/components/schemas/SyncCursor"}
+        next_after: {type: [string, "null"], format: uuid}
+        has_more: {type: boolean}
+    LoadoutChange:
+      type: object
+      additionalProperties: false
+      required: [cursor, resource_id, operation, revision, changed_at, loadout]
+      properties:
+        cursor: {$ref: "#/components/schemas/SyncCursor"}
+        resource_id: {type: string, format: uuid}
+        operation: {type: string, enum: [upsert, delete]}
+        revision: {type: integer, minimum: 1}
+        changed_at: {type: string, format: date-time}
+        loadout:
           oneOf:
-            - $ref: "#/components/schemas/MediaObject"
-            - type: "null"
-        item_count:
-          type: integer
-          minimum: 0
-        published_at:
-          type: string
-          format: date-time
-        fork_origin:
-          oneOf:
-            - $ref: "#/components/schemas/ForkOrigin"
-            - type: "null"
-
-    SyncPage:
+            - {$ref: "#/components/schemas/Loadout"}
+            - {type: "null"}
+    LoadoutChangePage:
       type: object
       additionalProperties: false
       required: [changes, next_cursor, has_more]
       properties:
         changes:
           type: array
-          items:
-            $ref: "#/components/schemas/SyncChange"
-        next_cursor:
-          type: string
-        has_more:
-          type: boolean
-
-    SyncChange:
-      type: object
-      additionalProperties: false
-      required: [resource_type, resource_id, operation, changed_at]
-      properties:
-        resource_type:
-          type: string
-          enum: [profile, loadout]
-        resource_id:
-          type: string
-          format: uuid
-        operation:
-          type: string
-          enum: [upsert, delete]
-        revision:
-          type: [integer, "null"]
-          minimum: 1
-        changed_at:
-          type: string
-          format: date-time
-
-    PrepareMediaUpload:
-      type: object
-      additionalProperties: false
-      required: [media_id, media_kind, content_type, byte_size, sha256]
-      properties:
-        media_id:
-          type: string
-          format: uuid
-        media_kind:
-          type: string
-          enum: [image]
-        content_type:
-          type: string
-          enum: [image/jpeg, image/png, image/heic, image/webp]
-        byte_size:
-          type: integer
-          minimum: 1
-          maximum: 15728640
-        sha256:
-          type: string
-          contentEncoding: base64
-
-    PreparedMediaUpload:
-      type: object
-      additionalProperties: false
-      required: [upload_id, media_id, upload_url, expires_at]
-      properties:
-        upload_id:
-          type: string
-          format: uuid
-        media_id:
-          type: string
-          format: uuid
-        upload_url:
-          type: string
-          format: uri
-        expires_at:
-          type: string
-          format: date-time
-
-    MediaObject:
-      type: object
-      additionalProperties: false
-      required:
-        - id
-        - media_kind
-        - content_type
-        - byte_size
-        - url
-        - created_at
-      properties:
-        id:
-          type: string
-          format: uuid
-        media_kind:
-          type: string
-          enum: [image, video]
-        content_type:
-          type: string
-        byte_size:
-          type: integer
-          minimum: 1
-        pixel_width:
-          type: [integer, "null"]
-          minimum: 1
-        pixel_height:
-          type: [integer, "null"]
-          minimum: 1
-        url:
-          type: string
-          format: uri
-          description: Short-lived authorized URL or public CDN URL.
-        thumbnail_url:
-          type: [string, "null"]
-          format: uri
-        created_at:
-          type: string
-          format: date-time
-
-    ContentReportWrite:
-      type: object
-      additionalProperties: false
-      required: [report_id, reason]
-      properties:
-        report_id:
-          type: string
-          format: uuid
-        reason:
-          type: string
-          enum: [spam, harassment, hate, sexual, violence, illegal, self_harm, other]
-        details:
-          type: [string, "null"]
-          maxLength: 2000
-
-    ContentReportReceipt:
-      type: object
-      additionalProperties: false
-      required: [id, state, created_at]
-      properties:
-        id:
-          type: string
-          format: uuid
-        state:
-          type: string
-          enum: [open, reviewing, resolved, dismissed]
-        created_at:
-          type: string
-          format: date-time
-
-    RevisionConflict:
-      type: object
-      additionalProperties: false
-      required: [code, message, trace_id, current_revision]
-      properties:
-        code:
-          type: string
-          const: revision_conflict
-        message:
-          type: string
-        trace_id:
-          type: string
-        current_revision:
-          type: integer
-          minimum: 1
-        current_loadout:
-          $ref: "#/components/schemas/Loadout"
-
+          maxItems: 20
+          items: {$ref: "#/components/schemas/LoadoutChange"}
+        next_cursor: {$ref: "#/components/schemas/SyncCursor"}
+        has_more: {type: boolean}
     Error:
       type: object
       additionalProperties: false
       required: [code, message, trace_id]
       properties:
-        code:
-          type: string
-          pattern: '^[a-z0-9_]+$'
-        message:
-          type: string
+        code: {type: string, pattern: "^[a-z0-9_]+$"}
+        message: {type: string}
         trace_id:
           type: string
-        field_errors:
-          type: array
-          items:
-            type: object
-            additionalProperties: false
-            required: [field, code]
-            properties:
-              field:
-                type: string
-              code:
-                type: string
-              message:
-                type: string
+          pattern: "^(?:[a-f0-9]{32}|request-id-unavailable)$"
