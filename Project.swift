@@ -19,6 +19,10 @@ let project = Project(
         .remote(
             url: "https://github.com/google/GoogleSignIn-iOS",
             requirement: .exact("9.0.0")
+        ),
+        .remote(
+            url: "https://github.com/getsentry/sentry-cocoa",
+            requirement: .exact("9.13.0")
         )
     ],
     settings: .settings(
@@ -138,6 +142,7 @@ let project = Project(
                 "NSPhotoLibraryAddUsageDescription": "To add new stickers on the device",
                 "BAGLOG_API_BASE_URL": "$(BAGLOG_API_BASE_URL)",
                 "BAGLOG_PRIVATE_SYNC_ENABLED": "$(BAGLOG_PRIVATE_SYNC_ENABLED)",
+                "BAGLOG_SENTRY_DSN": "$(BAGLOG_SENTRY_DSN)",
                 "GIDClientID": "$(BAGLOG_GOOGLE_IOS_CLIENT_ID)",
                 "GIDServerClientID": "$(BAGLOG_GOOGLE_SERVER_CLIENT_ID)",
                 "CFBundleURLTypes": [
@@ -184,13 +189,50 @@ let project = Project(
                 "BagLog/Localization/**"
             ],
             entitlements: .file(path: "BagLog/BagLog.entitlements"),
+            scripts: [
+                .post(
+                    script: """
+                    if [ "$CONFIGURATION" != "Release" ]; then
+                        exit 0
+                    fi
+
+                    if [ -z "${SENTRY_AUTH_TOKEN:-}" ]; then
+                        echo "warning: Sentry dSYM upload skipped because SENTRY_AUTH_TOKEN is not configured"
+                        exit 0
+                    fi
+
+                    if [[ "$(uname -m)" == "arm64" ]]; then
+                        export PATH="/opt/homebrew/bin:$PATH"
+                    fi
+
+                    if ! command -v sentry-cli >/dev/null 2>&1; then
+                        echo "error: sentry-cli is required to upload Sentry dSYMs"
+                        exit 1
+                    fi
+
+                    export SENTRY_ORG="squiddy-labs"
+                    export SENTRY_PROJECT="baglog-ios"
+
+                    if ! sentry_output=$(sentry-cli debug-files upload "$DWARF_DSYM_FOLDER_PATH" 2>&1); then
+                        echo "error: Sentry dSYM upload failed: $sentry_output"
+                        exit 1
+                    fi
+                    """,
+                    name: "Upload Debug Symbols to Sentry",
+                    inputPaths: [
+                        "${DWARF_DSYM_FOLDER_PATH}/${DWARF_DSYM_FILE_NAME}/Contents/Resources/DWARF/${EXECUTABLE_NAME}"
+                    ],
+                    basedOnDependencyAnalysis: false
+                )
+            ],
             dependencies: [
                 .target(name: "DesignSystem"),
                 .target(name: "Services"),
                 .package(product: "Persistence"),
                 .package(product: "PreviewDebugger"),
                 .package(product: "AccessDenied"),
-                .package(product: "GoogleSignInSwift")
+                .package(product: "GoogleSignInSwift"),
+                .package(product: "Sentry")
             ],
             settings: .settings(
                 base: [
@@ -211,6 +253,9 @@ let project = Project(
                     ),
                     .release(
                         name: "Release",
+                        settings: [
+                            "DEBUG_INFORMATION_FORMAT": "dwarf-with-dsym"
+                        ],
                         xcconfig: "Configuration/BagLog.xcconfig"
                     )
                 ]
@@ -267,6 +312,7 @@ let project = Project(
         .glob(pattern: "BagLogPackage/Tests/**"),
         "VisionSticker/README.md",
         "BagLog/README.md",
-        "BagLogTests/README.md"
+        "BagLogTests/README.md",
+        "Docs/ERROR_REPORTING.md"
     ]
 )

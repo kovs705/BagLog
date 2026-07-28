@@ -6,6 +6,8 @@
 	<string>$(BAGLOG_API_BASE_URL)</string>
 	<key>BAGLOG_PRIVATE_SYNC_ENABLED</key>
 	<string>$(BAGLOG_PRIVATE_SYNC_ENABLED)</string>
+	<key>BAGLOG_SENTRY_DSN</key>
+	<string>$(BAGLOG_SENTRY_DSN)</string>
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
 	<key>CFBundleExecutable</key>

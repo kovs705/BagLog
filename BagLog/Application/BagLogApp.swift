@@ -23,6 +23,7 @@ struct BagLogApp: App {
     private let mediaStore: any MediaStoring
 
     init() {
+        BagLogErrorReporting.start()
         let authenticationStore = AuthenticationComposition.make()
         _authenticationStore = State(initialValue: authenticationStore)
         do {
@@ -52,7 +53,12 @@ struct BagLogApp: App {
                 )
             )
         } catch {
-            fatalError("BagLog could not initialize its local data store: \(error)")
+            BagLogErrorReporting.capture(
+                error: error,
+                operation: "application.local_data_store.initialize"
+            )
+            BagLogErrorReporting.flushBeforeFatalTermination()
+            fatalError("BagLog could not initialize its local data store")
         }
     }
 

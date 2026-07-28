@@ -27,6 +27,7 @@ contract, Raspberry Pi deployment, and scale-out path are documented in
 BagLog app
     ├── Application
     │     ├── composes authentication and sync
+    │     ├── initializes privacy-limited crash reporting
     │     ├── owns scene/feature/authentication gates
     │     └── presents local sync and conflict state
     ├── Services
@@ -74,6 +75,8 @@ types; it does not decide how a screen looks or when a server request runs.
 - [Optional account authentication](AUTHENTICATION.md) documents Google
   sign-in, the shared Keychain-backed session controller, synchronization
   integration, privacy review, and production-release blockers.
+- [Error reporting](ERROR_REPORTING.md) documents the Sentry boundary, local
+  and CI configuration, privacy constraints, dSYM upload, and verification.
 - [Project description](PROJECT_DESCRIPTION.md) describes the product and user
   journey.
 - [Release 1.0](RELEASE_1_0.md) is the shipping scope and acceptance criteria
@@ -92,6 +95,11 @@ session actor. The sync coordinator runs only in a foreground DEBUG build when
 `BAGLOG_PRIVATE_SYNC_ENABLED` is exactly `YES` (or the UI-test override is
 present), a BagLog session is valid, and a local/remote profile scope has been
 established. Guest and disabled-flag workflows make no sync requests.
+
+Sentry starts at the composition root when a DSN is configured. It receives
+crashes and explicitly reported, sanitized handled failures; replay,
+performance, logs, metrics, network breadcrumbs, screenshots, view hierarchy,
+and automatic session tracking remain disabled.
 
 SwiftData remains the immediate source of truth. The engine first resumes any
 immutable in-flight attempt, then pushes new durable work, bootstraps or pulls
